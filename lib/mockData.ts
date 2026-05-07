@@ -7,7 +7,7 @@
 
 import { Property, TokkoResponse } from './tokko';
 
-export const MOCK_PROPERTIES: Property[] = [
+export const MOCK_PROPERTIES = [
   {
     id: 1001,
     title: 'Departamento 2 ambientes en Pichincha',
@@ -267,7 +267,7 @@ export function getMockProperties(
   offset: number = 0,
   limit: number = 20
 ): TokkoResponse {
-  const sliced = MOCK_PROPERTIES.slice(offset, offset + limit);
+  const sliced = MOCK_PROPERTIES.slice(offset, offset + limit) as unknown as Property[];
   return {
     meta: {
       total_count: MOCK_PROPERTIES.length,
@@ -281,5 +281,5 @@ export function getMockProperties(
 }
 
 export function getMockProperty(id: string | number): Property | undefined {
-  return MOCK_PROPERTIES.find((p) => p.id === Number(id));
+  return MOCK_PROPERTIES.find((p) => p.id === Number(id)) as unknown as Property | undefined;
 }
