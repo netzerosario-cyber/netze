@@ -362,7 +362,21 @@ export async function getProperties(
   }));
 
   console.info(`[Netze] Tokko devolvió ${raw.meta?.total_count ?? '?'} propiedades`);
-  return { meta: raw.meta, objects };
+
+  // ── Filtrado client-side de operación ──────────────────────
+  // Tokko no filtra confiablemente por operation_id en /property/,
+  // así que re-filtramos aquí para garantizar resultados correctos.
+  let finalObjects = objects;
+  if (filters.operation_types && filters.operation_types.length > 0) {
+    finalObjects = objects.filter((p) =>
+      p.operations.some((op) => filters.operation_types!.includes(op.id))
+    );
+  }
+
+  return {
+    meta: { ...raw.meta, total_count: finalObjects.length },
+    objects: finalObjects,
+  };
 }
 
 // ------------------------------------------------------------
