@@ -4,23 +4,39 @@
 import { getProperties } from '@/lib/tokko';
 import Link from 'next/link';
 
+export const dynamic = 'force-dynamic';
+
 export default async function AdminDashboard() {
   let totalVenta = 0;
   let totalAlquiler = 0;
   let totalProps = 0;
-  let isMock = false;
+  let isConnected = false;
 
   try {
-    const all = await getProperties({}, 0, 100);
+    const all = await getProperties({}, 0, 200);
     totalProps = all.meta.total_count;
-    const venta = await getProperties({ operation_types: [1] }, 0, 1);
-    totalVenta = venta.meta.total_count;
-    const alquiler = await getProperties({ operation_types: [2] }, 0, 1);
-    totalAlquiler = alquiler.meta.total_count;
-    isMock = !process.env.NEXT_PUBLIC_TOKKO_API_KEY;
+    isConnected = !!process.env.TOKKO_API_KEY;
+
+    // Contar operaciones reales recorriendo las propiedades
+    (all.objects ?? []).forEach(p => {
+      const ops = p.operations ?? [];
+      const hasVenta = ops.some((op: { id?: number; name?: string }) =>
+        op.id === 1 || (op.name ?? '').toLowerCase().includes('venta')
+      );
+      const hasAlquiler = ops.some((op: { id?: number; name?: string }) =>
+        op.id === 2 || (op.name ?? '').toLowerCase().includes('alquiler')
+      );
+      if (hasVenta) totalVenta++;
+      if (hasAlquiler) totalAlquiler++;
+    });
   } catch {
-    isMock = true;
+    isConnected = false;
   }
+
+  const waNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? 'No configurado';
+  const waFormatted = waNumber !== 'No configurado'
+    ? `+${waNumber.slice(0, 2)} ${waNumber.slice(2, 4)} ${waNumber.slice(4, 7)} ${waNumber.slice(7)}`
+    : waNumber;
 
   const cards = [
     {
@@ -53,8 +69,8 @@ export default async function AdminDashboard() {
         <p className="text-sm text-gray-400 mt-1">Resumen del portal inmobiliario</p>
       </div>
 
-      {/* Badge mock */}
-      {isMock && (
+      {/* Badge no conectado */}
+      {!isConnected && (
         <div className="mb-6 flex items-center gap-2 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-400 text-sm px-4 py-3 rounded-xl">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
@@ -87,15 +103,22 @@ export default async function AdminDashboard() {
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <span className="text-sm text-gray-500 dark:text-gray-400">Conexión Tokko Broker</span>
-            <span className={`flex items-center gap-1.5 text-xs font-semibold ${isMock ? 'text-amber-600' : 'text-emerald-600'}`}>
-              <span className={`w-2 h-2 rounded-full ${isMock ? 'bg-amber-400' : 'bg-emerald-400 animate-pulse'}`} />
-              {isMock ? 'Modo demo (sin API Key)' : 'Conectado'}
+            <span className={`flex items-center gap-1.5 text-xs font-semibold ${!isConnected ? 'text-amber-600' : 'text-emerald-600'}`}>
+              <span className={`w-2 h-2 rounded-full ${!isConnected ? 'bg-amber-400' : 'bg-emerald-400 animate-pulse'}`} />
+              {!isConnected ? 'Modo demo (sin API Key)' : 'Conectado'}
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-500 dark:text-gray-400">WhatsApp número</span>
+            <span className="text-sm text-gray-500 dark:text-gray-400">WhatsApp</span>
             <span className="text-xs font-mono text-gray-700 dark:text-gray-300">
-              {process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '+5493413492000'}
+              {waFormatted}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-500 dark:text-gray-400">Supabase</span>
+            <span className={`flex items-center gap-1.5 text-xs font-semibold ${process.env.NEXT_PUBLIC_SUPABASE_URL ? 'text-emerald-600' : 'text-amber-600'}`}>
+              <span className={`w-2 h-2 rounded-full ${process.env.NEXT_PUBLIC_SUPABASE_URL ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+              {process.env.NEXT_PUBLIC_SUPABASE_URL ? 'Conectado' : 'No configurado'}
             </span>
           </div>
         </div>
