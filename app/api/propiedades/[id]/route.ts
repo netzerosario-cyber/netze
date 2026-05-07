@@ -9,13 +9,14 @@ const TOKKO_BASE = 'https://www.tokkobroker.com/api/v1';
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const key = process.env.TOKKO_API_KEY ?? '';
 
   // ── Sin API key → mock ────────────────────────────────────
   if (!key) {
-    const property = getMockProperty(params.id);
+    const property = getMockProperty(id);
     if (!property) {
       return NextResponse.json({ error: 'Propiedad no encontrada' }, { status: 404 });
     }
@@ -23,7 +24,7 @@ export async function GET(
   }
 
   // ── Con API key → Tokko ───────────────────────────────────
-  const url = `${TOKKO_BASE}/property/${params.id}/?key=${key}&format=json&lang=es_ar`;
+  const url = `${TOKKO_BASE}/property/${id}/?key=${key}&format=json&lang=es_ar`;
   try {
     const res = await fetch(url, { next: { revalidate: 120 } });
     if (!res.ok) {
