@@ -302,9 +302,15 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
             {operation && (
               <button
                 onClick={() => {
-                  if (typeId)      { setTypeId(null); setCondition(null); applyFilters(operation, null, null); }
-                  else if (category) { setCategory(null); setTypeId(null); setCondition(null); applyFilters(operation, null, null); }
-                  else              { setOperation(null); onFilterChange({}); }
+                  // Si la categoría tiene 1 solo tipo, typeId se setea auto.
+                  // "Volver" debe saltar directo a categorías en ese caso.
+                  const cat = operation ? CATEGORIES[operation]?.find(c => c.id === category) : null;
+                  const singleType = cat && cat.types.length === 1;
+
+                  if (condition)              { setCondition(null); applyFilters(operation, typeId, null); }
+                  else if (typeId && !singleType) { setTypeId(null); setCondition(null); applyFilters(operation, null, null); }
+                  else if (category)          { setCategory(null); setTypeId(null); setCondition(null); applyFilters(operation, null, null); }
+                  else                        { setOperation(null); onFilterChange({}); }
                 }}
                 className="text-[12px] text-gray-400 dark:text-gray-500 hover:text-gray-800 dark:hover:text-gray-100 transition flex items-center gap-1"
               >
