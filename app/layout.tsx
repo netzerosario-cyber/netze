@@ -56,8 +56,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <div className="hidden md:block">
               <WhatsAppButton />
             </div>
-            {/* Footer global — oculto en home mobile (usa overflow-hidden + h-dvh) */}
-            <Footer />
+            {/* Footer global — oculto en mobile para que el mapa ocupe toda la pantalla */}
+            <div className="hidden md:block">
+              <Footer />
+            </div>
             {/* Barra flotante del comparador — disponible en toda la app */}
             <Comparador />
           </ComparadorProvider>
