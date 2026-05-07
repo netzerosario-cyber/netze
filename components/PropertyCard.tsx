@@ -164,7 +164,14 @@ export default function PropertyCard({ property, isSelected = false, onClick }: 
             href={waUrl}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              fetch('/api/track', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ property_id: String(property.id), event_type: 'whatsapp_click', property_title: property.title, property_address: property.address }),
+              }).catch(() => {});
+            }}
             className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-[#25D366] hover:bg-[#1ebe5d] active:scale-[0.98] text-white text-[13px] font-semibold transition-all shadow-sm"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="shrink-0">

@@ -2,59 +2,63 @@
 // ============================================================
 // app/admin/configuracion/page.tsx — Configuración del portal
 // ============================================================
-import { useState } from 'react';
 
 interface ConfigField {
   key: string;
   label: string;
   description: string;
-  placeholder: string;
-  type?: string;
+  currentValue: string;
   envKey: string;
+  sensitive?: boolean;
 }
 
 const FIELDS: ConfigField[] = [
   {
     key: 'whatsapp',
     label: 'Número de WhatsApp',
-    description: 'Número completo con código de país (sin + ni espacios). Ej: 5493413492000',
-    placeholder: '5493413492000',
-    type: 'tel',
+    description: 'Número completo con código de país, sin + ni espacios.',
+    currentValue: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? 'No configurado',
     envKey: 'NEXT_PUBLIC_WHATSAPP_NUMBER',
   },
   {
     key: 'tokko_key',
     label: 'API Key de Tokko Broker',
-    description: 'Clave de API de Tokko. Al guardarla, el portal dejará de usar datos de ejemplo.',
-    placeholder: 'tu-api-key-de-tokko',
-    type: 'password',
-    envKey: 'NEXT_PUBLIC_TOKKO_API_KEY',
+    description: 'Clave de API de Tokko para sincronizar propiedades.',
+    currentValue: '••••••••••••',
+    envKey: 'TOKKO_API_KEY',
+    sensitive: true,
   },
   {
     key: 'mapbox_token',
     label: 'Token de Mapbox',
-    description: 'Token público de Mapbox para el mapa. Rota periódicamente.',
-    placeholder: 'pk.eyJ1...',
+    description: 'Token público de Mapbox para el mapa interactivo.',
+    currentValue: process.env.NEXT_PUBLIC_MAPBOX_TOKEN ? `pk.eyJ1...${process.env.NEXT_PUBLIC_MAPBOX_TOKEN.slice(-8)}` : 'No configurado',
     envKey: 'NEXT_PUBLIC_MAPBOX_TOKEN',
+  },
+  {
+    key: 'supabase_url',
+    label: 'Supabase URL',
+    description: 'URL del proyecto Supabase para base de datos y analytics.',
+    currentValue: process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'No configurado',
+    envKey: 'NEXT_PUBLIC_SUPABASE_URL',
   },
 ];
 
 export default function AdminConfiguracionPage() {
-  const [saved, setSaved] = useState(false);
-
   return (
     <div className="max-w-2xl">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Configuración</h1>
-        <p className="text-sm text-gray-400 mt-1">Variables de entorno y configuración del portal.</p>
+        <p className="text-sm text-gray-400 mt-1">Variables de entorno y estado del sistema.</p>
       </div>
 
       {/* Info banner */}
       <div className="mb-6 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 text-blue-700 dark:text-blue-400 text-sm px-4 py-4 rounded-xl">
-        <p className="font-semibold mb-1">¿Cómo actualizar estas variables?</p>
+        <p className="font-semibold mb-1">¿Cómo cambiar estas variables?</p>
         <p className="text-xs leading-relaxed opacity-90">
-          Estas configuraciones se definen en el archivo <code className="bg-blue-100 dark:bg-blue-500/20 px-1 py-0.5 rounded text-xs font-mono">.env.local</code> en la raíz del proyecto.
-          Editalo con los valores correctos y reiniciá el servidor con <code className="bg-blue-100 dark:bg-blue-500/20 px-1 py-0.5 rounded text-xs font-mono">npm run dev</code>.
+          Estas configuraciones se definen como <strong>Environment Variables</strong> en Vercel.<br/>
+          Ir a <code className="bg-blue-100 dark:bg-blue-500/20 px-1 py-0.5 rounded text-xs font-mono">Vercel → Settings → Environment Variables</code>, 
+          actualizar el valor y hacer un <strong>Redeploy</strong>.
         </p>
       </div>
 
@@ -75,30 +79,18 @@ export default function AdminConfiguracionPage() {
             </div>
 
             <div className="flex items-center gap-2 bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#21262d] rounded-xl px-4 py-2.5">
-              <code className="text-sm font-mono text-gray-600 dark:text-gray-300 flex-1 truncate opacity-60">
-                {field.placeholder}
+              <span className={`w-2 h-2 rounded-full shrink-0 ${field.currentValue !== 'No configurado' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+              <code className="text-sm font-mono text-gray-600 dark:text-gray-300 flex-1 truncate">
+                {field.currentValue}
               </code>
-              <span className="text-[10px] text-gray-400 shrink-0">Editar en .env.local</span>
             </div>
           </div>
         ))}
 
-        {/* Guía rápida */}
-        <div className="bg-gray-50 dark:bg-[#161b22] border border-gray-100 dark:border-[#30363d] rounded-2xl p-5">
-          <h3 className="text-sm font-semibold text-gray-800 dark:text-white mb-3">Guía rápida de configuración</h3>
-          <ol className="flex flex-col gap-2 text-xs text-gray-600 dark:text-gray-400 list-decimal list-inside leading-relaxed">
-            <li>Abrí el archivo <code className="bg-gray-200 dark:bg-[#21262d] px-1 py-0.5 rounded font-mono">.env.local</code> en la raíz del proyecto.</li>
-            <li>Actualizá el valor correspondiente (ej: <code className="bg-gray-200 dark:bg-[#21262d] px-1 py-0.5 rounded font-mono">NEXT_PUBLIC_WHATSAPP_NUMBER=5493XXXXXXXXX</code>).</li>
-            <li>Guardá el archivo.</li>
-            <li>Reiniciá el servidor: <code className="bg-gray-200 dark:bg-[#21262d] px-1 py-0.5 rounded font-mono">npm run dev</code>.</li>
-            <li>Los cambios se aplican automáticamente en todos los componentes.</li>
-          </ol>
-        </div>
-
         {/* Credenciales admin */}
         <div className="bg-white dark:bg-[#161b22] border border-gray-100 dark:border-[#30363d] rounded-2xl p-5">
           <h3 className="text-sm font-semibold text-gray-800 dark:text-white mb-1">Credenciales del Admin</h3>
-          <p className="text-xs text-gray-400 mb-3">Para cambiar el usuario y contraseña de acceso a este panel.</p>
+          <p className="text-xs text-gray-400 mb-3">Para cambiar el usuario y contraseña, actualizar en Vercel Environment Variables.</p>
           <div className="grid grid-cols-2 gap-3">
             <div className="flex items-center justify-between bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-[#21262d] rounded-xl px-4 py-2.5">
               <span className="text-xs text-gray-500 dark:text-gray-400">ADMIN_USER</span>
@@ -109,6 +101,18 @@ export default function AdminConfiguracionPage() {
               <code className="text-xs font-mono text-gray-600 dark:text-gray-300">••••••••</code>
             </div>
           </div>
+        </div>
+
+        {/* Guía rápida */}
+        <div className="bg-gray-50 dark:bg-[#161b22] border border-gray-100 dark:border-[#30363d] rounded-2xl p-5">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-white mb-3">Pasos para actualizar una variable</h3>
+          <ol className="flex flex-col gap-2 text-xs text-gray-600 dark:text-gray-400 list-decimal list-inside leading-relaxed">
+            <li>Ir a <strong>Vercel.com</strong> → tu proyecto <strong>netze</strong></li>
+            <li>Ir a <strong>Settings → Environment Variables</strong></li>
+            <li>Buscar la variable que querés cambiar (ej: <code className="bg-gray-200 dark:bg-[#21262d] px-1 py-0.5 rounded font-mono">NEXT_PUBLIC_WHATSAPP_NUMBER</code>)</li>
+            <li>Editarla con el nuevo valor y guardar</li>
+            <li>Ir a <strong>Deployments</strong> y hacer click en <strong>Redeploy</strong> en el último deploy</li>
+          </ol>
         </div>
       </div>
     </div>
