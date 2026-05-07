@@ -1,13 +1,10 @@
 'use client';
 // ============================================================
 // components/MapView.tsx
-// Sistema UNIFICADO: Mapbox GeoJSON clustering + HTML markers.
+// Sistema de mapa: Mapbox GL con markers HTML nativos + clustering.
 //
-// Zoom bajo  → círculos azules con cantidad (Mapbox layers)
-// Zoom alto  → pills HTML con precio (markers individuales)
-//
-// La sincronización se hace vía queryRenderedFeatures:
-// solo se muestran HTML markers para puntos NO agrupados.
+// Los markers usan anchor:'bottom' para que NUNCA se muevan al
+// hacer zoom. El clustering se maneja 100% via GeoJSON source.
 // ============================================================
 import { useEffect, useRef, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
@@ -20,8 +17,8 @@ const INITIAL_ZOOM   = 12;
 const SOURCE_ID      = 'netze-props';
 const L_CLUSTERS     = 'layer-clusters';
 const L_CLUSTER_CNT  = 'layer-cluster-count';
-const L_UNCLUSTERED  = 'layer-unclustered';   // invisible, solo para queries
-const CLUSTER_ZOOM   = 14;                     // clusterMaxZoom
+const CLUSTER_RADIUS = 60;
+const CLUSTER_MAX_ZOOM = 14;
 const STYLE_LIGHT    = 'mapbox://styles/mapbox/light-v11';
 const STYLE_DARK     = 'mapbox://styles/mapbox/dark-v11';
 
@@ -40,7 +37,7 @@ interface MapViewProps {
 
 // ── CSS ───────────────────────────────────────────────────────
 const MARKER_CSS = `
-.netze-marker{cursor:pointer;display:inline-flex;flex-direction:column;align-items:center}
+.netze-marker{cursor:pointer;display:inline-flex;flex-direction:column;align-items:center;pointer-events:auto}
 .netze-marker-pill{display:flex;align-items:center;gap:5px;padding:5px 11px 5px 8px;border-radius:999px;background:#0042cd;border:1.5px solid #0042cd;box-shadow:0 2px 8px rgba(0,0,0,.15);transition:transform .2s cubic-bezier(0.34, 1.56, 0.64, 1),box-shadow .2s ease,background .2s ease,border-color .2s ease;white-space:nowrap}
 .netze-marker-pill:hover{transform:scale(1.08) translateY(-4px);background:#0062fa;border-color:#0062fa;box-shadow:0 8px 24px rgba(0,98,250,.4)}
 .netze-marker-pill:hover .netze-marker-dot{background:#fff}
@@ -143,14 +140,31 @@ export default function MapView({
       .addTo(map);
   }, []);
 
-  // ── Sincronizar markers con estado de clustering ──────────
-  // Crea markers para TODAS las propiedades una sola vez.
-  // Luego muestra/oculta según si están clustered o no.
+  // ── Sincronizar markers HTML con el estado del clustering ──
   const syncMarkers = useCallback((map: mapboxgl.Map) => {
     if (!layersReady.current) return;
-    if (!map.isSourceLoaded(SOURCE_ID)) return;
 
-    // 1. Crear markers que falten
+    const zoom = map.getZoom();
+    const showIndividual = zoom > CLUSTER_MAX_ZOOM;
+
+    // Si estamos en zoom bajo (clusters visibles), ocultar todos los markers HTML
+    if (!showIndividual) {
+      markersRef.current.forEach(({ el }) => { el.style.display = 'none'; });
+      return;
+    }
+
+    // Zoom alto: mostrar markers HTML, verificar cuáles están en el viewport
+    const bounds = map.getBounds();
+    markersRef.current.forEach(({ el, marker }) => {
+      const lngLat = marker.getLngLat();
+      const inView = bounds ? bounds.contains(lngLat) : true;
+      el.style.display = inView ? '' : 'none';
+    });
+  }, []);
+
+  // ── Crear/actualizar markers HTML ─────────────────────────
+  const rebuildMarkers = useCallback((map: mapboxgl.Map) => {
+    // Crear markers que falten
     propsRef.current.forEach(prop => {
       if (!prop.geo_lat || !prop.geo_long) return;
       if (markersRef.current.has(prop.id)) return;
@@ -166,48 +180,23 @@ export default function MapView({
         onSelectRef.current(prop.id);
         showPopup(map, prop, [lng, lat]);
       });
+
+      // anchor:'bottom' asegura que el marker se ancla a la coordenada exacta
       const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
         .setLngLat([lng, lat])
         .addTo(map);
+
       markersRef.current.set(prop.id, { marker, el });
     });
 
-    // 2. Eliminar markers de propiedades que ya no existen
+    // Eliminar markers de propiedades que ya no existen
     const currentIds = new Set(propsRef.current.map(p => p.id));
     markersRef.current.forEach((entry, id) => {
       if (!currentIds.has(id)) { entry.marker.remove(); markersRef.current.delete(id); }
     });
 
-    // 3. Determinar qué puntos están sin clusterizar en el viewport
-    const canvas = map.getCanvas();
-    const features = map.queryRenderedFeatures(
-      [[0, 0], [canvas.width, canvas.height]],
-      { layers: [L_UNCLUSTERED] }
-    );
-    const unclusteredIds = new Set<number>();
-    features.forEach(f => {
-      const id = f.properties?.id;
-      if (id != null) unclusteredIds.add(Number(id));
-    });
-
-    // 4. Mostrar/ocultar
-    const bounds = map.getBounds();
-    markersRef.current.forEach((entry, id) => {
-      const prop = propsRef.current.find(p => p.id === id);
-      if (!prop?.geo_lat || !prop?.geo_long) return;
-      const lat = parseFloat(prop.geo_lat);
-      const lng = parseFloat(prop.geo_long);
-      const inView = bounds ? bounds.contains(new mapboxgl.LngLat(lng, lat)) : true;
-
-      if (inView) {
-        // Dentro del viewport: solo mostrar si NO está clustered
-        entry.el.style.display = unclusteredIds.has(id) ? '' : 'none';
-      } else {
-        // Fuera del viewport: mostrar (no hay círculo cluster que tape)
-        entry.el.style.display = '';
-      }
-    });
-  }, [showPopup]);
+    syncMarkers(map);
+  }, [showPopup, syncMarkers]);
 
   // ── Configurar source + layers de clustering ──────────────
   const setupLayers = useCallback((map: mapboxgl.Map) => {
@@ -215,15 +204,14 @@ export default function MapView({
 
     if (map.getLayer(L_CLUSTER_CNT)) map.removeLayer(L_CLUSTER_CNT);
     if (map.getLayer(L_CLUSTERS))    map.removeLayer(L_CLUSTERS);
-    if (map.getLayer(L_UNCLUSTERED)) map.removeLayer(L_UNCLUSTERED);
     if (map.getSource(SOURCE_ID))    map.removeSource(SOURCE_ID);
 
     map.addSource(SOURCE_ID, {
       type: 'geojson',
       data: toGeoJSON(propsRef.current),
       cluster: true,
-      clusterMaxZoom: CLUSTER_ZOOM,
-      clusterRadius: 50,
+      clusterMaxZoom: CLUSTER_MAX_ZOOM,
+      clusterRadius: CLUSTER_RADIUS,
     });
 
     // Círculos de cluster
@@ -251,13 +239,6 @@ export default function MapView({
       paint: { 'text-color': '#ffffff' },
     });
 
-    // Puntos individuales INVISIBLES (solo para queryRenderedFeatures)
-    map.addLayer({
-      id: L_UNCLUSTERED, type: 'circle', source: SOURCE_ID,
-      filter: ['!', ['has', 'point_count']],
-      paint: { 'circle-radius': 1, 'circle-opacity': 0 },
-    });
-
     // Click en cluster → zoom
     map.on('click', L_CLUSTERS, (e) => {
       const fs = map.queryRenderedFeatures(e.point, { layers: [L_CLUSTERS] });
@@ -276,8 +257,8 @@ export default function MapView({
     map.on('mouseleave', L_CLUSTERS, () => { map.getCanvas().style.cursor = ''; });
 
     layersReady.current = true;
-    syncMarkers(map);
-  }, [syncMarkers]);
+    rebuildMarkers(map);
+  }, [rebuildMarkers]);
 
   // ── Inicializar mapa ──────────────────────────────────────
   useEffect(() => {
@@ -303,14 +284,11 @@ export default function MapView({
       onBoundsRef.current({ north: b.getNorth(), south: b.getSouth(), east: b.getEast(), west: b.getWest() });
     };
 
-    // Cuando el estilo carga (incluido cambio de tema), reconstruir layers
+    // Cuando el estilo carga, reconstruir layers
     map.on('style.load', () => { setupLayers(map); emitBounds(); });
     // Sincronizar markers en cada movimiento/zoom
     map.on('moveend', () => { syncMarkers(map); emitBounds(); });
-    // También sincronizar cuando los datos del source terminan de cargarse
-    map.on('sourcedata', (e) => {
-      if (e.sourceId === SOURCE_ID && e.isSourceLoaded) syncMarkers(map);
-    });
+    map.on('zoomend', () => { syncMarkers(map); });
 
     mapRef.current = map;
     return () => {
@@ -333,7 +311,6 @@ export default function MapView({
     if (isDark) map.getContainer().classList.add('dark-map');
     else        map.getContainer().classList.remove('dark-map');
     map.setStyle(isDark ? STYLE_DARK : STYLE_LIGHT);
-    // style.load event reconstruye layers automáticamente
   }, [isDark]);
 
   // ── Actualizar datos (propiedades nuevas) ─────────────────
@@ -343,9 +320,9 @@ export default function MapView({
     try {
       const src = map.getSource(SOURCE_ID) as mapboxgl.GeoJSONSource;
       if (src) src.setData(toGeoJSON(properties));
-      // syncMarkers se dispara vía sourcedata event
+      rebuildMarkers(map);
     } catch { /* source no lista */ }
-  }, [properties]);
+  }, [properties, rebuildMarkers]);
 
   // ── Actualizar estado seleccionado ────────────────────────
   useEffect(() => {
