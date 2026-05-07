@@ -1,6 +1,8 @@
 // ============================================================
 // app/admin/layout.tsx — Layout compartido del panel admin
+// Siempre en modo claro para apariencia profesional
 // ============================================================
+import Image from 'next/image';
 import Link from 'next/link';
 import AdminLogoutButton from '@/components/AdminLogoutButton';
 
@@ -11,44 +13,40 @@ const NAV_ITEMS = [
   { href: '/admin/configuracion', label: 'Configuración', icon: 'M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 011.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.107 1.204.165.397.505.71.93.78l.893.15c.543.09.94.56.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.893.149c-.425.07-.765.383-.93.78-.165.398-.143.854.107 1.204l.527.738c.32.447.269 1.06-.12 1.45l-.774.773a1.125 1.125 0 01-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.397.165-.71.505-.781.929l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-1.06.269-1.45-.12l-.773-.774a1.125 1.125 0 01-.12-1.45l.527-.737c.25-.35.273-.806.108-1.204-.165-.397-.505-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.107-1.204l-.527-.738a1.125 1.125 0 01.12-1.45l.773-.773a1.125 1.125 0 011.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.929l.15-.894z M15 12a3 3 0 11-6 0 3 3 0 016 0z' },
 ];
 
-
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-dvh bg-gray-50 dark:bg-[#0d1117] flex flex-col">
+    <div className="min-h-dvh bg-gray-50 flex flex-col" data-theme="light" style={{ colorScheme: 'light' }}>
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-white dark:bg-[#161b22] border-b border-gray-100 dark:border-[#21262d] h-14 flex items-center px-6 gap-4">
-        <Link href="/" className="flex items-center gap-1.5">
-          <span className="text-[18px] font-extrabold text-gray-900 dark:text-white tracking-tight">netze</span>
-          <svg width="7" height="7" viewBox="0 0 8 8" className="mb-0.5">
-            <circle cx="4" cy="4" r="4" fill="url(#ag)" />
-            <defs>
-              <radialGradient id="ag" cx="30%" cy="30%">
-                <stop offset="0%" stopColor="#0061FB" />
-                <stop offset="100%" stopColor="#0041CE" />
-              </radialGradient>
-            </defs>
-          </svg>
+      <header className="sticky top-0 z-50 bg-white border-b border-gray-200 h-14 flex items-center px-6 gap-4">
+        <Link href="/" className="flex items-center select-none shrink-0">
+          <Image 
+            src="/logos/Logo Principal.svg" 
+            alt="Netze Logo" 
+            width={100} 
+            height={34} 
+            className="object-contain" 
+          />
         </Link>
-        <span className="h-4 w-px bg-gray-200 dark:bg-[#30363d]" />
-        <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-widest">Panel Admin</span>
+        <span className="h-4 w-px bg-gray-200" />
+        <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Panel Admin</span>
         <div className="flex-1" />
         <AdminLogoutButton />
-        <Link href="/" className="text-sm text-[#0041CE] dark:text-[#0061FB] font-medium hover:underline">
+        <Link href="/" className="text-sm text-[#0041CE] font-medium hover:underline">
           Ver portal →
         </Link>
       </header>
 
       <div className="flex flex-1">
         {/* Sidebar */}
-        <aside className="w-56 shrink-0 border-r border-gray-100 dark:border-[#21262d] bg-white dark:bg-[#161b22] hidden md:block">
+        <aside className="w-56 shrink-0 border-r border-gray-200 bg-white hidden md:block">
           <nav className="p-4 flex flex-col gap-1">
             {NAV_ITEMS.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#21262d] hover:text-gray-900 dark:hover:text-white transition-colors group"
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors group"
               >
-                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} className="shrink-0 text-gray-400 group-hover:text-[#0041CE] dark:group-hover:text-[#0061FB] transition-colors">
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} className="shrink-0 text-gray-400 group-hover:text-[#0041CE] transition-colors">
                   <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
                 </svg>
                 {item.label}
