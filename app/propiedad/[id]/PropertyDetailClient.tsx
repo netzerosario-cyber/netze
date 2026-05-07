@@ -3,7 +3,7 @@
 // app/propiedad/[id]/PropertyDetailClient.tsx
 // Sidebar de contacto — diseño premium, WhatsApp como CTA principal
 // ============================================================
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Property, getPriceInfo, formatPriceLabel } from '@/lib/tokko';
 import { useFavoritos } from '@/hooks/useFavoritos';
 import LeadModal from '@/components/LeadModal';
@@ -18,6 +18,14 @@ function buildWaUrl(property: Property, priceLabel: string, type: 'info' | 'visi
   return `https://wa.me/${number}?text=${encodeURIComponent(text)}`;
 }
 
+function trackEvent(propertyId: number, eventType: string, title?: string, address?: string) {
+  fetch('/api/track', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ property_id: String(propertyId), event_type: eventType, property_title: title, property_address: address }),
+  }).catch(() => {});
+}
+
 export default function PropertyDetailClient({ property }: Props) {
   const { toggleFavorito, esFavorito } = useFavoritos();
   const isFav = esFavorito(property.id);
@@ -26,6 +34,11 @@ export default function PropertyDetailClient({ property }: Props) {
   const priceLabel = formatPriceLabel(price, currency);
   const waInfoUrl  = buildWaUrl(property, priceLabel, 'info');
   const waVisitUrl = buildWaUrl(property, priceLabel, 'visit');
+
+  // Track vista de propiedad
+  useEffect(() => {
+    trackEvent(property.id, 'view', property.title, property.address);
+  }, [property.id, property.title, property.address]);
 
   return (
     <div className="sticky top-20 flex flex-col gap-3">
@@ -45,6 +58,7 @@ export default function PropertyDetailClient({ property }: Props) {
             href={waInfoUrl}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => trackEvent(property.id, 'whatsapp_click', property.title, property.address)}
             className="group flex items-center justify-center gap-2.5 w-full py-3.5 rounded-xl bg-[#25D366] hover:bg-[#1ebe5d] active:scale-[0.98] text-white text-[14px] font-bold transition-all shadow-md shadow-[#25D366]/30"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="shrink-0 group-hover:scale-110 transition-transform">

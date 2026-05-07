@@ -1,10 +1,8 @@
 'use client';
 // ============================================================
 // components/MapView.tsx
-// Sistema de mapa: Mapbox GL con markers HTML nativos + clustering.
-//
-// Los markers usan anchor:'bottom' para que NUNCA se muevan al
-// hacer zoom. El clustering se maneja 100% via GeoJSON source.
+// Mapa con markers HTML + clustering GeoJSON nativo de Mapbox.
+// Radio de cluster reducido para evitar agrupar propiedades lejanas.
 // ============================================================
 import { useEffect, useRef, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
@@ -17,8 +15,8 @@ const INITIAL_ZOOM   = 12;
 const SOURCE_ID      = 'netze-props';
 const L_CLUSTERS     = 'layer-clusters';
 const L_CLUSTER_CNT  = 'layer-cluster-count';
-const CLUSTER_RADIUS = 60;
-const CLUSTER_MAX_ZOOM = 14;
+const CLUSTER_RADIUS = 35;       // Radio chico: solo agrupa si están MUY juntas
+const CLUSTER_MAX_ZOOM = 13;     // A zoom 13+ ya muestra individuales
 const STYLE_LIGHT    = 'mapbox://styles/mapbox/light-v11';
 const STYLE_DARK     = 'mapbox://styles/mapbox/dark-v11';
 
@@ -65,12 +63,25 @@ function injectCSS() {
   document.head.appendChild(s);
 }
 
-// ── Crear HTML del marker ─────────────────────────────────────
 function makeEl(label: string, selected: boolean): HTMLDivElement {
   const w = document.createElement('div');
   w.className = `netze-marker${selected ? ' selected' : ''}`;
   w.innerHTML = `<div class="netze-marker-pill"><div class="netze-marker-dot"></div><span class="netze-marker-price">${label}</span></div><div class="netze-marker-tail"></div>`;
   return w;
+}
+
+// ── Track event helper ────────────────────────────────────────
+function trackEvent(propertyId: number, eventType: string, title?: string, address?: string) {
+  fetch('/api/track', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      property_id: String(propertyId),
+      event_type: eventType,
+      property_title: title,
+      property_address: address,
+    }),
+  }).catch(() => {});
 }
 
 // ── GeoJSON desde propiedades ─────────────────────────────────
@@ -122,6 +133,11 @@ export default function MapView({
     const op = prop.operations?.[0]?.name ?? '';
     const wa = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '5493413492000';
     const wt = encodeURIComponent(`Hola! Me interesa la propiedad en ${prop.address} (${pl}). ¿Pueden darme más información?`);
+    trackEvent(prop.id, 'map_click', prop.title, prop.address);
+
+    const safeTitle = (prop.title ?? '').replace(/'/g, "\\'");
+    const safeAddress = (prop.address ?? '').replace(/'/g, "\\'");
+
     popupRef.current = new mapboxgl.Popup({ closeButton: true, maxWidth: '260px', offset: [0, -8] })
       .setLngLat(lngLat)
       .setHTML(`<div style="width:240px;font-family:'Inter',sans-serif">
@@ -133,27 +149,25 @@ export default function MapView({
           <p style="font-size:15px;font-weight:700;color:#111827;margin:0 0 2px">${pl}</p>
           <p style="font-size:12px;color:#6b7280;margin:0 0 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${prop.address}</p>
           <div style="display:flex;flex-direction:column;gap:6px">
-            <a href="https://wa.me/${wa}?text=${wt}" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:6px;background:#25D366;color:#fff;font-size:12px;font-weight:600;padding:8px;border-radius:8px;text-decoration:none">Consultar por WhatsApp</a>
+            <a href="https://wa.me/${wa}?text=${wt}" target="_blank" onclick="fetch('/api/track',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({property_id:'${prop.id}',event_type:'whatsapp_click',property_title:'${safeTitle}',property_address:'${safeAddress}'})})" style="display:flex;align-items:center;justify-content:center;gap:6px;background:#25D366;color:#fff;font-size:12px;font-weight:600;padding:8px;border-radius:8px;text-decoration:none">Consultar por WhatsApp</a>
             <a href="/propiedad/${prop.id}" style="display:flex;align-items:center;justify-content:center;background:#f3f4f6;color:#374151;font-size:12px;font-weight:600;padding:8px;border-radius:8px;text-decoration:none">Ver detalle →</a>
           </div>
         </div></div>`)
       .addTo(map);
   }, []);
 
-  // ── Sincronizar markers HTML con el estado del clustering ──
+  // ── Sincronizar markers HTML ──────────────────────────────
   const syncMarkers = useCallback((map: mapboxgl.Map) => {
     if (!layersReady.current) return;
 
     const zoom = map.getZoom();
     const showIndividual = zoom > CLUSTER_MAX_ZOOM;
 
-    // Si estamos en zoom bajo (clusters visibles), ocultar todos los markers HTML
     if (!showIndividual) {
       markersRef.current.forEach(({ el }) => { el.style.display = 'none'; });
       return;
     }
 
-    // Zoom alto: mostrar markers HTML, verificar cuáles están en el viewport
     const bounds = map.getBounds();
     markersRef.current.forEach(({ el, marker }) => {
       const lngLat = marker.getLngLat();
@@ -162,9 +176,8 @@ export default function MapView({
     });
   }, []);
 
-  // ── Crear/actualizar markers HTML ─────────────────────────
+  // ── Crear markers HTML ────────────────────────────────────
   const rebuildMarkers = useCallback((map: mapboxgl.Map) => {
-    // Crear markers que falten
     propsRef.current.forEach(prop => {
       if (!prop.geo_lat || !prop.geo_long) return;
       if (markersRef.current.has(prop.id)) return;
@@ -181,7 +194,6 @@ export default function MapView({
         showPopup(map, prop, [lng, lat]);
       });
 
-      // anchor:'bottom' asegura que el marker se ancla a la coordenada exacta
       const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
         .setLngLat([lng, lat])
         .addTo(map);
@@ -189,7 +201,6 @@ export default function MapView({
       markersRef.current.set(prop.id, { marker, el });
     });
 
-    // Eliminar markers de propiedades que ya no existen
     const currentIds = new Set(propsRef.current.map(p => p.id));
     markersRef.current.forEach((entry, id) => {
       if (!currentIds.has(id)) { entry.marker.remove(); markersRef.current.delete(id); }
@@ -214,7 +225,6 @@ export default function MapView({
       clusterRadius: CLUSTER_RADIUS,
     });
 
-    // Círculos de cluster
     map.addLayer({
       id: L_CLUSTERS, type: 'circle', source: SOURCE_ID,
       filter: ['has', 'point_count'],
@@ -227,7 +237,6 @@ export default function MapView({
       },
     });
 
-    // Número dentro del cluster
     map.addLayer({
       id: L_CLUSTER_CNT, type: 'symbol', source: SOURCE_ID,
       filter: ['has', 'point_count'],
@@ -284,9 +293,7 @@ export default function MapView({
       onBoundsRef.current({ north: b.getNorth(), south: b.getSouth(), east: b.getEast(), west: b.getWest() });
     };
 
-    // Cuando el estilo carga, reconstruir layers
     map.on('style.load', () => { setupLayers(map); emitBounds(); });
-    // Sincronizar markers en cada movimiento/zoom
     map.on('moveend', () => { syncMarkers(map); emitBounds(); });
     map.on('zoomend', () => { syncMarkers(map); });
 
@@ -313,7 +320,7 @@ export default function MapView({
     map.setStyle(isDark ? STYLE_DARK : STYLE_LIGHT);
   }, [isDark]);
 
-  // ── Actualizar datos (propiedades nuevas) ─────────────────
+  // ── Actualizar datos ─────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !layersReady.current) return;
@@ -321,7 +328,7 @@ export default function MapView({
       const src = map.getSource(SOURCE_ID) as mapboxgl.GeoJSONSource;
       if (src) src.setData(toGeoJSON(properties));
       rebuildMarkers(map);
-    } catch { /* source no lista */ }
+    } catch { /* source not ready */ }
   }, [properties, rebuildMarkers]);
 
   // ── Actualizar estado seleccionado ────────────────────────
