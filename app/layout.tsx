@@ -52,9 +52,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <main className="flex flex-col flex-1 min-h-0">
               {children}
             </main>
-            {/* WhatsApp flotante — disponible en toda la app */}
-            <WhatsAppButton />
-            {/* Footer global */}
+            {/* WhatsApp flotante — oculto en home mobile */}
+            <div className="hidden md:block">
+              <WhatsAppButton />
+            </div>
+            {/* Footer global — oculto en home mobile (usa overflow-hidden + h-dvh) */}
             <Footer />
             {/* Barra flotante del comparador — disponible en toda la app */}
             <Comparador />

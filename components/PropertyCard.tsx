@@ -47,7 +47,7 @@ export default function PropertyCard({ property, isSelected = false, onClick }: 
   return (
     <article
       onClick={() => onClick?.(property.id)}
-      className={`group relative bg-white dark:bg-[#161b22] rounded-2xl overflow-hidden transition-all duration-200 cursor-pointer ${
+      className={`group relative bg-white dark:bg-[#161b22] rounded-2xl overflow-hidden transition-all duration-200 cursor-pointer flex flex-col h-full ${
         isSelected
           ? 'ring-2 ring-[#0041CE] shadow-xl shadow-[#0041CE]/10'
           : 'shadow-sm hover:shadow-lg border border-gray-100 dark:border-[#30363d]'
@@ -61,7 +61,7 @@ export default function PropertyCard({ property, isSelected = false, onClick }: 
       )}
 
       {/* ── Imagen ──────────────────────────────────────── */}
-      <div className="relative overflow-hidden bg-gray-100 dark:bg-[#21262d]" style={{ height: '180px' }}>
+      <div className="relative overflow-hidden bg-gray-100 dark:bg-[#21262d] aspect-[16/10] shrink-0">
         {!imgError ? (
           <Image
             src={photoUrl}
@@ -118,10 +118,10 @@ export default function PropertyCard({ property, isSelected = false, onClick }: 
         <div className="absolute bottom-0 inset-x-0 h-16 bg-gradient-to-t from-black/30 to-transparent pointer-events-none" />
       </div>
 
-      {/* ── Info ────────────────────────────────────────── */}
-      <div className="p-4">
+      {/* ── Info ──────────────────────────────────────────── */}
+      <div className="p-3 md:p-4 flex flex-col flex-1">
         <div className="flex items-start justify-between gap-2 mb-1">
-          <span className="text-[18px] font-bold text-gray-900 dark:text-white leading-tight">{priceLabel}</span>
+          <span className="text-base md:text-[18px] font-bold text-gray-900 dark:text-white leading-tight">{priceLabel}</span>
           <span className="shrink-0 text-[11px] font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-[#21262d] px-2 py-0.5 rounded-full mt-0.5">
             {property.property_type?.name ?? 'Propiedad'}
           </span>
@@ -158,7 +158,7 @@ export default function PropertyCard({ property, isSelected = false, onClick }: 
         </div>
 
         {/* CTAs */}
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 mt-auto">
           {/* WhatsApp */}
           <a
             href={waUrl}
