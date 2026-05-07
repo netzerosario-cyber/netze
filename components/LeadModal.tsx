@@ -7,7 +7,6 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { insertLead } from '@/lib/supabase';
 import { Property } from '@/lib/tokko';
 
 interface LeadModalProps {
@@ -63,15 +62,19 @@ export default function LeadModal({ propiedad, isOpen, onClose }: LeadModalProps
     setFormState('loading');
     setErrorMsg('');
 
-    const { error } = await insertLead({
-      nombre: nombre.trim(),
-      email: email.trim().toLowerCase(),
-      mensaje: mensaje.trim() || undefined,
-      propiedad_id: propiedad ? String(propiedad.id) : undefined,
-      propiedad_titulo: propiedad?.title,
+    const res = await fetch('/api/leads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nombre: nombre.trim(),
+        email: email.trim().toLowerCase(),
+        mensaje: mensaje.trim() || undefined,
+        propiedad_id: propiedad ? String(propiedad.id) : undefined,
+        propiedad_titulo: propiedad?.title,
+      }),
     });
 
-    if (error) {
+    if (!res.ok) {
       setFormState('error');
       setErrorMsg('Ocurrió un error al enviar. Intentá nuevamente.');
     } else {

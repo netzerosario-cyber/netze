@@ -4,7 +4,17 @@
 // ============================================================
 import { useState } from 'react';
 import Link from 'next/link';
-import { insertLead } from '@/lib/supabase';
+
+async function submitLead(data: { nombre: string; email: string; mensaje: string }) {
+  const res = await fetch('/api/leads', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) return { error: 'Error al enviar' };
+  return { error: null };
+}
+
 
 type FormState = 'idle' | 'loading' | 'success' | 'error';
 
@@ -20,7 +30,7 @@ export default function ContactoPage() {
     e.preventDefault();
     if (!email.trim()) { setErrorMsg('El email es obligatorio.'); return; }
     setFormState('loading'); setErrorMsg('');
-    const { error } = await insertLead({
+    const { error } = await submitLead({
       nombre: nombre.trim(),
       email: email.trim().toLowerCase(),
       mensaje: `${telefono ? `Tel: ${telefono} — ` : ''}${mensaje.trim()}`,
