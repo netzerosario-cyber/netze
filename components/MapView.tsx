@@ -1,28 +1,29 @@
 'use client';
 // ============================================================
-// components/MapView.tsx
-// Mapa con markers HTML + clustering GeoJSON nativo de Mapbox.
-// Radio de cluster reducido para evitar agrupar propiedades lejanas.
+// components/MapView.tsx  — VERSIÓN DEFINITIVA
+//
+// Dos modos que nunca se superponen:
+//   zoom ≤ CLUSTER_MAX_ZOOM → GeoJSON layers (clusters + puntos sueltos)
+//   zoom >  CLUSTER_MAX_ZOOM → HTML markers (price pills)
 // ============================================================
 import { useEffect, useRef, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Property, getPriceInfo, formatPriceLabel, getFrontPhoto } from '@/lib/tokko';
 
-// ── Constantes ────────────────────────────────────────────────
 const INITIAL_CENTER: [number, number] = [-60.6505, -32.9468];
 const INITIAL_ZOOM   = 12;
 const SOURCE_ID      = 'netze-props';
-const L_CLUSTERS     = 'layer-clusters';
-const L_CLUSTER_CNT  = 'layer-cluster-count';
-const CLUSTER_RADIUS = 35;       // Radio chico: solo agrupa si están MUY juntas
-const CLUSTER_MAX_ZOOM = 13;     // A zoom 13+ ya muestra individuales
-const STYLE_LIGHT    = 'mapbox://styles/mapbox/light-v11';
-const STYLE_DARK     = 'mapbox://styles/mapbox/dark-v11';
+const L_CLUSTERS     = 'clusters';
+const L_CLUSTER_CNT  = 'cluster-count';
+const L_UNCLUSTERED  = 'unclustered-point';
+const L_UNCL_LABEL   = 'unclustered-label';
+const CLUSTER_RADIUS = 40;
+const CLUSTER_MAX_ZOOM = 13;
+const STYLE_LIGHT = 'mapbox://styles/mapbox/light-v11';
+const STYLE_DARK  = 'mapbox://styles/mapbox/dark-v11';
 
-export interface BoundingBox {
-  north: number; south: number; east: number; west: number;
-}
+export interface BoundingBox { north: number; south: number; east: number; west: number; }
 
 interface MapViewProps {
   properties: Property[];
@@ -33,26 +34,17 @@ interface MapViewProps {
   flyToLocation?: [number, number] | null;
 }
 
-// ── CSS ───────────────────────────────────────────────────────
+// ── CSS para HTML markers (solo zoom alto) ────────────────────
 const MARKER_CSS = `
 .netze-marker{cursor:pointer;display:inline-flex;flex-direction:column;align-items:center;pointer-events:auto}
-.netze-marker-pill{display:flex;align-items:center;gap:5px;padding:5px 11px 5px 8px;border-radius:999px;background:#0042cd;border:1.5px solid #0042cd;box-shadow:0 2px 8px rgba(0,0,0,.15);transition:transform .2s cubic-bezier(0.34, 1.56, 0.64, 1),box-shadow .2s ease,background .2s ease,border-color .2s ease;white-space:nowrap}
+.netze-marker-pill{display:flex;align-items:center;gap:5px;padding:5px 11px 5px 8px;border-radius:999px;background:#0042cd;border:1.5px solid #0042cd;box-shadow:0 2px 8px rgba(0,0,0,.15);transition:transform .2s cubic-bezier(0.34,1.56,0.64,1),box-shadow .2s ease;white-space:nowrap}
 .netze-marker-pill:hover{transform:scale(1.08) translateY(-4px);background:#0062fa;border-color:#0062fa;box-shadow:0 8px 24px rgba(0,98,250,.4)}
-.netze-marker-pill:hover .netze-marker-dot{background:#fff}
-.netze-marker-pill:hover .netze-marker-price{color:#fff}
 .netze-marker-dot{width:7px;height:7px;border-radius:50%;background:#01d3f7;flex-shrink:0}
 .netze-marker-price{font-family:var(--font-mazzard),system-ui,sans-serif;font-size:11.5px;font-weight:700;color:#fff;letter-spacing:-.2px}
-.netze-marker-tail{width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:7px solid #0042cd;transition:border-top-color .2s ease}
+.netze-marker-tail{width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:7px solid #0042cd}
 .netze-marker-pill:hover+.netze-marker-tail{border-top-color:#0062fa}
 .netze-marker.selected .netze-marker-pill{background:#000d36;border-color:#000d36;box-shadow:0 8px 24px rgba(0,13,54,.5);transform:scale(1.1) translateY(-4px)}
-.netze-marker.selected .netze-marker-dot{background:#01d3f7}
-.netze-marker.selected .netze-marker-price{color:#fff}
 .netze-marker.selected .netze-marker-tail{border-top-color:#000d36}
-.dark-map .netze-marker-pill{background:#000d36;border-color:#000d36;box-shadow:0 2px 8px rgba(0,0,0,.5)}
-.dark-map .netze-marker-price{color:#bac5d1}
-.dark-map .netze-marker-tail{border-top-color:#000d36}
-.dark-map .netze-marker.selected .netze-marker-pill{background:#0062fa;border-color:#0062fa;box-shadow:0 4px 16px rgba(0,98,250,.5)}
-.dark-map .netze-marker.selected .netze-marker-tail{border-top-color:#0062fa}
 `;
 
 function injectCSS() {
@@ -70,35 +62,27 @@ function makeEl(label: string, selected: boolean): HTMLDivElement {
   return w;
 }
 
-// ── Track event helper ────────────────────────────────────────
-function trackEvent(propertyId: number, eventType: string, title?: string, address?: string) {
+function trackEvent(pid: number, type: string, title?: string, addr?: string) {
   fetch('/api/track', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      property_id: String(propertyId),
-      event_type: eventType,
-      property_title: title,
-      property_address: address,
-    }),
+    body: JSON.stringify({ property_id: String(pid), event_type: type, property_title: title, property_address: addr }),
   }).catch(() => {});
 }
 
-// ── GeoJSON desde propiedades ─────────────────────────────────
 function toGeoJSON(props: Property[]): GeoJSON.FeatureCollection {
   return {
     type: 'FeatureCollection',
     features: props
       .filter(p => p.geo_lat && p.geo_long)
       .map(p => {
-        const lat = parseFloat(p.geo_lat!);
-        const lng = parseFloat(p.geo_long!);
+        const lat = parseFloat(p.geo_lat!), lng = parseFloat(p.geo_long!);
         if (isNaN(lat) || isNaN(lng)) return null;
         const { price, currency } = getPriceInfo(p);
         return {
           type: 'Feature' as const,
           geometry: { type: 'Point' as const, coordinates: [lng, lat] },
-          properties: { id: p.id, priceLabel: formatPriceLabel(price, currency) },
+          properties: { id: p.id, priceLabel: formatPriceLabel(price, currency), title: p.title ?? '', address: p.address ?? '' },
         };
       })
       .filter(Boolean) as GeoJSON.Feature[],
@@ -109,15 +93,15 @@ function toGeoJSON(props: Property[]): GeoJSON.FeatureCollection {
 export default function MapView({
   properties, selectedId, isDark = false, onBoundsChange, onPropertySelect, flyToLocation,
 }: MapViewProps) {
-  const containerRef  = useRef<HTMLDivElement>(null);
-  const mapRef        = useRef<mapboxgl.Map | null>(null);
-  const popupRef      = useRef<mapboxgl.Popup | null>(null);
-  const markersRef    = useRef<Map<number, { marker: mapboxgl.Marker; el: HTMLDivElement }>>(new Map());
-  const onSelectRef   = useRef(onPropertySelect);
-  const onBoundsRef   = useRef(onBoundsChange);
-  const propsRef      = useRef(properties);
-  const selIdRef      = useRef(selectedId);
-  const layersReady   = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef       = useRef<mapboxgl.Map | null>(null);
+  const popupRef     = useRef<mapboxgl.Popup | null>(null);
+  const markersRef   = useRef<Map<number, { marker: mapboxgl.Marker; el: HTMLDivElement }>>(new Map());
+  const onSelectRef  = useRef(onPropertySelect);
+  const onBoundsRef  = useRef(onBoundsChange);
+  const propsRef     = useRef(properties);
+  const selIdRef     = useRef(selectedId);
+  const layersReady  = useRef(false);
 
   useEffect(() => { onSelectRef.current = onPropertySelect; }, [onPropertySelect]);
   useEffect(() => { onBoundsRef.current = onBoundsChange;   }, [onBoundsChange]);
@@ -134,9 +118,8 @@ export default function MapView({
     const wa = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '5493413492000';
     const wt = encodeURIComponent(`Hola! Me interesa la propiedad en ${prop.address} (${pl}). ¿Pueden darme más información?`);
     trackEvent(prop.id, 'map_click', prop.title, prop.address);
-
     const safeTitle = (prop.title ?? '').replace(/'/g, "\\'");
-    const safeAddress = (prop.address ?? '').replace(/'/g, "\\'");
+    const safeAddr  = (prop.address ?? '').replace(/'/g, "\\'");
 
     popupRef.current = new mapboxgl.Popup({ closeButton: true, maxWidth: '260px', offset: [0, -8] })
       .setLngLat(lngLat)
@@ -149,41 +132,39 @@ export default function MapView({
           <p style="font-size:15px;font-weight:700;color:#111827;margin:0 0 2px">${pl}</p>
           <p style="font-size:12px;color:#6b7280;margin:0 0 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${prop.address}</p>
           <div style="display:flex;flex-direction:column;gap:6px">
-            <a href="https://wa.me/${wa}?text=${wt}" target="_blank" onclick="fetch('/api/track',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({property_id:'${prop.id}',event_type:'whatsapp_click',property_title:'${safeTitle}',property_address:'${safeAddress}'})})" style="display:flex;align-items:center;justify-content:center;gap:6px;background:#25D366;color:#fff;font-size:12px;font-weight:600;padding:8px;border-radius:8px;text-decoration:none">Consultar por WhatsApp</a>
+            <a href="https://wa.me/${wa}?text=${wt}" target="_blank" onclick="fetch('/api/track',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({property_id:'${prop.id}',event_type:'whatsapp_click',property_title:'${safeTitle}',property_address:'${safeAddr}'})})" style="display:flex;align-items:center;justify-content:center;gap:6px;background:#25D366;color:#fff;font-size:12px;font-weight:600;padding:8px;border-radius:8px;text-decoration:none">Consultar por WhatsApp</a>
             <a href="/propiedad/${prop.id}" style="display:flex;align-items:center;justify-content:center;background:#f3f4f6;color:#374151;font-size:12px;font-weight:600;padding:8px;border-radius:8px;text-decoration:none">Ver detalle →</a>
           </div>
         </div></div>`)
       .addTo(map);
   }, []);
 
-  // ── Sincronizar markers HTML ──────────────────────────────
-  const syncMarkers = useCallback((map: mapboxgl.Map) => {
+  // ── Mostrar/ocultar según zoom ────────────────────────────
+  const syncVisibility = useCallback((map: mapboxgl.Map) => {
     if (!layersReady.current) return;
-
     const zoom = map.getZoom();
-    const showIndividual = zoom > CLUSTER_MAX_ZOOM;
+    const showPills = zoom > CLUSTER_MAX_ZOOM;
 
-    if (!showIndividual) {
-      markersRef.current.forEach(({ el }) => { el.style.display = 'none'; });
-      return;
-    }
+    // GeoJSON layers: visible solo en zoom bajo
+    try {
+      map.setLayoutProperty(L_CLUSTERS,    'visibility', showPills ? 'none' : 'visible');
+      map.setLayoutProperty(L_CLUSTER_CNT, 'visibility', showPills ? 'none' : 'visible');
+      map.setLayoutProperty(L_UNCLUSTERED, 'visibility', showPills ? 'none' : 'visible');
+      map.setLayoutProperty(L_UNCL_LABEL,  'visibility', showPills ? 'none' : 'visible');
+    } catch { /* layers not ready */ }
 
-    const bounds = map.getBounds();
-    markersRef.current.forEach(({ el, marker }) => {
-      const lngLat = marker.getLngLat();
-      const inView = bounds ? bounds.contains(lngLat) : true;
-      el.style.display = inView ? '' : 'none';
+    // HTML markers: visible solo en zoom alto
+    markersRef.current.forEach(({ el }) => {
+      el.style.display = showPills ? '' : 'none';
     });
   }, []);
 
-  // ── Crear markers HTML ────────────────────────────────────
+  // ── Crear HTML markers ────────────────────────────────────
   const rebuildMarkers = useCallback((map: mapboxgl.Map) => {
     propsRef.current.forEach(prop => {
       if (!prop.geo_lat || !prop.geo_long) return;
       if (markersRef.current.has(prop.id)) return;
-
-      const lat = parseFloat(prop.geo_lat);
-      const lng = parseFloat(prop.geo_long);
+      const lat = parseFloat(prop.geo_lat), lng = parseFloat(prop.geo_long);
       if (isNaN(lat) || isNaN(lng)) return;
 
       const { price, currency } = getPriceInfo(prop);
@@ -201,21 +182,18 @@ export default function MapView({
       markersRef.current.set(prop.id, { marker, el });
     });
 
-    const currentIds = new Set(propsRef.current.map(p => p.id));
-    markersRef.current.forEach((entry, id) => {
-      if (!currentIds.has(id)) { entry.marker.remove(); markersRef.current.delete(id); }
-    });
+    // Eliminar markers de propiedades eliminadas
+    const ids = new Set(propsRef.current.map(p => p.id));
+    markersRef.current.forEach((e, id) => { if (!ids.has(id)) { e.marker.remove(); markersRef.current.delete(id); } });
 
-    syncMarkers(map);
-  }, [showPopup, syncMarkers]);
+    syncVisibility(map);
+  }, [showPopup, syncVisibility]);
 
-  // ── Configurar source + layers de clustering ──────────────
+  // ── Configurar GeoJSON source + layers ────────────────────
   const setupLayers = useCallback((map: mapboxgl.Map) => {
     layersReady.current = false;
-
-    if (map.getLayer(L_CLUSTER_CNT)) map.removeLayer(L_CLUSTER_CNT);
-    if (map.getLayer(L_CLUSTERS))    map.removeLayer(L_CLUSTERS);
-    if (map.getSource(SOURCE_ID))    map.removeSource(SOURCE_ID);
+    [L_UNCL_LABEL, L_UNCLUSTERED, L_CLUSTER_CNT, L_CLUSTERS].forEach(l => { if (map.getLayer(l)) map.removeLayer(l); });
+    if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
 
     map.addSource(SOURCE_ID, {
       type: 'geojson',
@@ -225,51 +203,98 @@ export default function MapView({
       clusterRadius: CLUSTER_RADIUS,
     });
 
+    // Cluster circles
     map.addLayer({
       id: L_CLUSTERS, type: 'circle', source: SOURCE_ID,
       filter: ['has', 'point_count'],
       paint: {
         'circle-color': '#0041CE',
-        'circle-radius': ['step', ['get', 'point_count'], 24, 10, 30, 50, 38],
+        'circle-radius': ['step', ['get', 'point_count'], 22, 5, 28, 20, 36],
         'circle-stroke-color': 'rgba(0,65,206,0.2)',
-        'circle-stroke-width': 6,
-        'circle-opacity': 0.9,
+        'circle-stroke-width': 5,
+        'circle-opacity': 0.92,
       },
     });
 
+    // Cluster count text
     map.addLayer({
       id: L_CLUSTER_CNT, type: 'symbol', source: SOURCE_ID,
       filter: ['has', 'point_count'],
       layout: {
         'text-field': '{point_count_abbreviated}',
         'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
-        'text-size': 13, 'text-allow-overlap': true,
+        'text-size': 13,
+        'text-allow-overlap': true,
       },
       paint: { 'text-color': '#ffffff' },
     });
 
-    // Click en cluster → zoom
+    // Unclustered individual points (dots at low zoom)
+    map.addLayer({
+      id: L_UNCLUSTERED, type: 'circle', source: SOURCE_ID,
+      filter: ['!', ['has', 'point_count']],
+      paint: {
+        'circle-color': '#0041CE',
+        'circle-radius': 7,
+        'circle-stroke-width': 2.5,
+        'circle-stroke-color': '#ffffff',
+        'circle-opacity': 0.9,
+      },
+    });
+
+    // Unclustered price labels
+    map.addLayer({
+      id: L_UNCL_LABEL, type: 'symbol', source: SOURCE_ID,
+      filter: ['!', ['has', 'point_count']],
+      layout: {
+        'text-field': ['get', 'priceLabel'],
+        'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+        'text-size': 11,
+        'text-offset': [0, -1.8],
+        'text-anchor': 'bottom',
+        'text-allow-overlap': false,
+      },
+      paint: {
+        'text-color': '#0041CE',
+        'text-halo-color': '#ffffff',
+        'text-halo-width': 1.5,
+      },
+    });
+
+    // Click en cluster → zoom in
     map.on('click', L_CLUSTERS, (e) => {
       const fs = map.queryRenderedFeatures(e.point, { layers: [L_CLUSTERS] });
       if (!fs.length) return;
       const cid = fs[0].properties?.cluster_id;
       const geom = fs[0].geometry as GeoJSON.Point;
-      (map.getSource(SOURCE_ID) as mapboxgl.GeoJSONSource).getClusterExpansionZoom(
-        cid, (err, zoom) => {
-          if (err || zoom == null) return;
-          map.easeTo({ center: geom.coordinates as [number, number], zoom: zoom + 0.5, duration: 500 });
-        }
-      );
+      (map.getSource(SOURCE_ID) as mapboxgl.GeoJSONSource).getClusterExpansionZoom(cid, (err, z) => {
+        if (err || z == null) return;
+        map.easeTo({ center: geom.coordinates as [number, number], zoom: z + 0.5, duration: 500 });
+      });
+    });
+
+    // Click en punto individual (zoom bajo) → popup
+    map.on('click', L_UNCLUSTERED, (e) => {
+      const fs = map.queryRenderedFeatures(e.point, { layers: [L_UNCLUSTERED] });
+      if (!fs.length) return;
+      const propId = fs[0].properties?.id;
+      const prop = propsRef.current.find(p => p.id === propId);
+      if (!prop) return;
+      const geom = fs[0].geometry as GeoJSON.Point;
+      onSelectRef.current(propId);
+      showPopup(map, prop, geom.coordinates as [number, number]);
     });
 
     map.on('mouseenter', L_CLUSTERS, () => { map.getCanvas().style.cursor = 'pointer'; });
     map.on('mouseleave', L_CLUSTERS, () => { map.getCanvas().style.cursor = ''; });
+    map.on('mouseenter', L_UNCLUSTERED, () => { map.getCanvas().style.cursor = 'pointer'; });
+    map.on('mouseleave', L_UNCLUSTERED, () => { map.getCanvas().style.cursor = ''; });
 
     layersReady.current = true;
     rebuildMarkers(map);
-  }, [rebuildMarkers]);
+  }, [rebuildMarkers, showPopup]);
 
-  // ── Inicializar mapa ──────────────────────────────────────
+  // ── Init map ──────────────────────────────────────────────
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
     injectCSS();
@@ -282,7 +307,6 @@ export default function MapView({
       zoom: INITIAL_ZOOM,
       attributionControl: false,
     });
-    if (isDark) map.getContainer().classList.add('dark-map');
 
     map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'bottom-right');
     map.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-left');
@@ -294,8 +318,8 @@ export default function MapView({
     };
 
     map.on('style.load', () => { setupLayers(map); emitBounds(); });
-    map.on('moveend', () => { syncMarkers(map); emitBounds(); });
-    map.on('zoomend', () => { syncMarkers(map); });
+    map.on('moveend', () => { syncVisibility(map); emitBounds(); });
+    map.on('zoomend', () => { syncVisibility(map); });
 
     mapRef.current = map;
     return () => {
@@ -308,19 +332,17 @@ export default function MapView({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Cambio de tema ────────────────────────────────────────
+  // ── Theme change ──────────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !map.isStyleLoaded()) return;
     layersReady.current = false;
     markersRef.current.forEach(({ marker }) => marker.remove());
     markersRef.current.clear();
-    if (isDark) map.getContainer().classList.add('dark-map');
-    else        map.getContainer().classList.remove('dark-map');
     map.setStyle(isDark ? STYLE_DARK : STYLE_LIGHT);
   }, [isDark]);
 
-  // ── Actualizar datos ─────────────────────────────────────
+  // ── Data update ───────────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !layersReady.current) return;
@@ -331,14 +353,14 @@ export default function MapView({
     } catch { /* source not ready */ }
   }, [properties, rebuildMarkers]);
 
-  // ── Actualizar estado seleccionado ────────────────────────
+  // ── Selected state ────────────────────────────────────────
   useEffect(() => {
     markersRef.current.forEach(({ el }, id) => {
       el.className = `netze-marker${id === selectedId ? ' selected' : ''}`;
     });
   }, [selectedId]);
 
-  // ── FlyTo al seleccionar propiedad ────────────────────────
+  // ── FlyTo property ────────────────────────────────────────
   useEffect(() => {
     if (!selectedId) return;
     const map = mapRef.current;
@@ -350,7 +372,7 @@ export default function MapView({
     map.flyTo({ center: [lng, lat], zoom: Math.max(map.getZoom(), 15), duration: 700 });
   }, [selectedId, properties]);
 
-  // ── FlyTo desde SearchBar ─────────────────────────────────
+  // ── FlyTo from search ─────────────────────────────────────
   useEffect(() => {
     if (!flyToLocation) return;
     mapRef.current?.flyTo({ center: flyToLocation, zoom: 14, duration: 1000 });

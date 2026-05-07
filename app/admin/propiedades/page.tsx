@@ -74,7 +74,7 @@ export default function AdminPropiedadesPage() {
     <div className="max-w-5xl">
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Propiedades</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Propiedades</h1>
           <p className="text-sm text-gray-400 mt-0.5">
             {filtered.length} propiedades · {featuredIds.length} destacada{featuredIds.length !== 1 ? 's' : ''}
           </p>
@@ -88,7 +88,7 @@ export default function AdminPropiedadesPage() {
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(0); }}
             placeholder="Buscar por dirección..."
-            className="pl-9 pr-4 py-2 rounded-xl border border-gray-200 dark:border-[#30363d] bg-white dark:bg-[#161b22] text-sm text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0041CE]/20 focus:border-[#0041CE] transition w-64"
+            className="pl-9 pr-4 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0041CE]/20 focus:border-[#0041CE] transition w-64"
           />
         </div>
       </div>
@@ -96,11 +96,11 @@ export default function AdminPropiedadesPage() {
       {loading ? (
         <div className="grid gap-3">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="bg-white dark:bg-[#161b22] border border-gray-100 dark:border-[#30363d] rounded-xl p-4 flex items-center gap-4 animate-pulse">
-              <div className="w-16 h-12 bg-gray-200 dark:bg-[#21262d] rounded-lg shrink-0" />
+            <div key={i} className="bg-white border border-gray-100 rounded-xl p-4 flex items-center gap-4 animate-pulse">
+              <div className="w-16 h-12 bg-gray-200 rounded-lg shrink-0" />
               <div className="flex-1 flex flex-col gap-2">
-                <div className="h-4 bg-gray-200 dark:bg-[#21262d] rounded w-48" />
-                <div className="h-3 bg-gray-100 dark:bg-[#161b22] rounded w-32" />
+                <div className="h-4 bg-gray-200 rounded w-48" />
+                <div className="h-3 bg-gray-100 rounded w-32" />
               </div>
             </div>
           ))}
@@ -123,10 +123,10 @@ export default function AdminPropiedadesPage() {
               return (
                 <div
                   key={p.id}
-                  className={`bg-white dark:bg-[#161b22] border rounded-xl p-4 flex items-center gap-4 transition-colors ${
+                  className={`bg-white border rounded-xl p-4 flex items-center gap-4 transition-colors ${
                     isFeatured
-                      ? 'border-amber-300 dark:border-amber-500/40 bg-amber-50/50 dark:bg-amber-500/5'
-                      : 'border-gray-100 dark:border-[#30363d] hover:border-[#0041CE]/30 dark:hover:border-[#0061FB]/30'
+                      ? 'border-amber-300 bg-amber-50/50'
+                      : 'border-gray-100 hover:border-[#0041CE]/30'
                   }`}
                 >
                   {/* Toggle destacado */}
@@ -135,8 +135,8 @@ export default function AdminPropiedadesPage() {
                     disabled={isSaving}
                     className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all ${
                       isFeatured
-                        ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-500 hover:bg-amber-200 dark:hover:bg-amber-500/30'
-                        : 'bg-gray-100 dark:bg-[#21262d] text-gray-300 dark:text-gray-600 hover:bg-amber-50 dark:hover:bg-amber-500/10 hover:text-amber-400'
+                        ? 'bg-amber-100 text-amber-500 hover:bg-amber-200'
+                        : 'bg-gray-100 text-gray-300 hover:bg-amber-50 hover:text-amber-400'
                     } ${isSaving ? 'opacity-50 animate-pulse' : ''}`}
                     title={isFeatured ? 'Quitar de destacados' : 'Marcar como destacada'}
                   >
@@ -146,24 +146,24 @@ export default function AdminPropiedadesPage() {
                   </button>
 
                   {/* Foto */}
-                  <div className="relative w-16 h-12 rounded-lg overflow-hidden bg-gray-100 dark:bg-[#21262d] shrink-0">
+                  <div className="relative w-16 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
                     <Image src={photo} alt={p.address} fill className="object-cover" onError={() => {}} />
                   </div>
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{p.address}</p>
+                      <p className="text-sm font-semibold text-gray-900 truncate">{p.address}</p>
                       {isFeatured && (
-                        <span className="text-[10px] bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full font-semibold whitespace-nowrap">
+                        <span className="text-[10px] bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full font-semibold whitespace-nowrap">
                           ⭐ Destacada
                         </span>
                       )}
                     </div>
                     <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      <span className="text-xs text-gray-500 dark:text-gray-400">{priceLabel}</span>
+                      <span className="text-xs text-gray-500">{priceLabel}</span>
                       {opType && (
-                        <span className="text-[10px] bg-[#0041CE]/10 text-[#0041CE] dark:text-[#0061FB] px-2 py-0.5 rounded-full">{opType}</span>
+                        <span className="text-[10px] bg-[#0041CE]/10 text-[#0041CE] px-2 py-0.5 rounded-full">{opType}</span>
                       )}
                     </div>
                   </div>
@@ -172,7 +172,7 @@ export default function AdminPropiedadesPage() {
                   <Link
                     href={`/propiedad/${p.id}`}
                     target="_blank"
-                    className="text-xs text-[#0041CE] dark:text-[#0061FB] font-medium hover:underline whitespace-nowrap shrink-0"
+                    className="text-xs text-[#0041CE] font-medium hover:underline whitespace-nowrap shrink-0"
                   >
                     Ver →
                   </Link>
@@ -186,17 +186,17 @@ export default function AdminPropiedadesPage() {
               <button
                 onClick={() => setPage((p) => Math.max(0, p - 1))}
                 disabled={page === 0}
-                className="px-4 py-2 text-sm rounded-lg border border-gray-200 dark:border-[#30363d] disabled:opacity-40 hover:bg-gray-100 dark:hover:bg-[#21262d] transition"
+                className="px-4 py-2 text-sm rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-100 transition"
               >
                 ← Anterior
               </button>
-              <span className="text-sm text-gray-500 dark:text-gray-400">
+              <span className="text-sm text-gray-500">
                 Página {page + 1} de {totalPages}
               </span>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
                 disabled={page === totalPages - 1}
-                className="px-4 py-2 text-sm rounded-lg border border-gray-200 dark:border-[#30363d] disabled:opacity-40 hover:bg-gray-100 dark:hover:bg-[#21262d] transition"
+                className="px-4 py-2 text-sm rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-100 transition"
               >
                 Siguiente →
               </button>
