@@ -179,8 +179,8 @@ export default function HomePage() {
                 </div>
               )}
 
-              {/* Toggle Mapa → Lista (sobre el mapa) */}
-              <div className="absolute top-4 right-4 z-20">
+              {/* Toggle Mapa → Lista */}
+              <div className="absolute bottom-6 left-4 z-20">
                 <button
                   onClick={() => setDesktopView('list')}
                   className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-[#161b22] rounded-full shadow-lg border border-gray-200 dark:border-[#30363d] text-sm font-semibold text-gray-700 dark:text-gray-200 hover:border-[#0041CE] dark:hover:border-[#0061FB] transition-all active:scale-[0.97]"

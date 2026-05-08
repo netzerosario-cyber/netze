@@ -10,6 +10,13 @@ interface AdminUser {
   pass: string;
 }
 
+const DEFAULT_ADMINS: AdminUser[] = [
+  { email: 'admin', pass: 'netze2024' },
+  { email: 'grak3101@gmail.com', pass: 'netze2024' },
+  { email: 'jonatanchiappe@gmail.com', pass: 'netze2024' },
+  { email: 'administracion@netze.com.ar', pass: 'netze2024' },
+];
+
 function getAdminUsers(): AdminUser[] {
   // Try multi-user format first
   const usersRaw = process.env.ADMIN_USERS;
@@ -21,10 +28,12 @@ function getAdminUsers(): AdminUser[] {
       console.error('[Netze Admin] Failed to parse ADMIN_USERS env var');
     }
   }
-  // Fallback to single user
-  const user = process.env.ADMIN_USER ?? 'admin';
-  const pass = process.env.ADMIN_PASS ?? 'netze2024';
-  return [{ email: user, pass }];
+  // Fallback to single user env vars
+  const user = process.env.ADMIN_USER;
+  const pass = process.env.ADMIN_PASS;
+  if (user && pass) return [{ email: user, pass }];
+  // Final fallback: hardcoded defaults
+  return DEFAULT_ADMINS;
 }
 
 const COOKIE_NAME = 'netze_admin';
@@ -32,10 +41,13 @@ const COOKIE_MAX_AGE = 60 * 60 * 8; // 8 horas
 
 export async function POST(req: NextRequest) {
   const { user, pass } = await req.json();
+  // Trim whitespace to avoid login issues from copy-paste
+  const trimUser = (user ?? '').trim();
+  const trimPass = (pass ?? '').trim();
 
   const admins = getAdminUsers();
   const match = admins.find(
-    (a) => (a.email === user || a.email === user) && a.pass === pass
+    (a) => a.email.trim() === trimUser && a.pass.trim() === trimPass
   );
 
   if (!match) {

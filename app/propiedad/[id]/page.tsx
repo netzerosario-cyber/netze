@@ -241,7 +241,7 @@ function PropertyInfo({ property: p }: { property: Property }) {
           <p className="text-xs text-blue-200">Respondemos en menos de 1 hora</p>
         </div>
         <a
-          href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '5493413492000'}?text=${encodeURIComponent(`Hola! Me interesa la propiedad ${p.reference_code ?? ''} en ${p.address} (${priceLabel}). ¿Pueden darme más información?`)}`}
+          href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '5493417538537'}?text=${encodeURIComponent(`Hola! Me interesa la propiedad ${p.reference_code ?? ''} en ${p.address} (${priceLabel}). ¿Pueden darme más información?`)}`}
           target="_blank" rel="noopener noreferrer"
           className="flex items-center justify-center gap-2 w-full py-3.5 bg-[#25D366] text-white text-[15px] font-bold"
         >
@@ -295,7 +295,7 @@ export default async function PropiedadPage({ params }: PageProps) {
 
   const { price: mobilePrice, currency: mobileCurrency } = getPriceInfo(property);
   const mobilePriceLabel = formatPriceLabel(mobilePrice, mobileCurrency);
-  const mobileWaUrl = `https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '5493413492000'}?text=${encodeURIComponent(`Hola! Me interesa la propiedad en ${property.address} (${mobilePriceLabel}). ¿Pueden darme más información?`)}`;
+  const mobileWaUrl = `https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '5493417538537'}?text=${encodeURIComponent(`Hola! Me interesa la propiedad en ${property.address} (${mobilePriceLabel}). ¿Pueden darme más información?`)}`;
 
   return (
     <div className="overflow-y-auto h-full bg-gray-50">

@@ -11,7 +11,7 @@ import LeadModal from '@/components/LeadModal';
 interface Props { property: Property; }
 
 function buildWaUrl(property: Property, priceLabel: string, type: 'info' | 'visit') {
-  const number = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '5493413492000';
+  const number = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '5493417538537';
   const text = type === 'visit'
     ? `Hola! Me gustaría coordinar una visita para la propiedad en ${property.address} (${priceLabel}). ¿Cuándo podría ser?`
     : `Hola! Me interesa la propiedad en ${property.address} (${priceLabel}). ¿Pueden darme más información?`;

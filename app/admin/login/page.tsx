@@ -59,7 +59,7 @@ export default function AdminLoginPage() {
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1.5">Usuario</label>
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5">Usuario o email</label>
               <input
                 type="text"
                 value={user}
@@ -68,7 +68,7 @@ export default function AdminLoginPage() {
                 required
                 disabled={loading}
                 className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-900 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0041CE]/30 focus:border-[#0041CE] transition disabled:opacity-50"
-                placeholder="admin"
+                placeholder="admin o tu@email.com"
               />
             </div>
             <div>

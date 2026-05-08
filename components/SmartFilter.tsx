@@ -30,14 +30,6 @@ interface Category {
   conditions?: Array<{ label: string; value: string }>;
 }
 
-// Condiciones de compra (usado/estrenar/pozo/etc.)
-const BUY_CONDITIONS = [
-  { label: 'Usado',        value: 'used' },
-  { label: 'A estrenar',   value: 'new' },
-  { label: 'En ejecución', value: 'construction' },
-  { label: 'Pozo',         value: 'launch' },
-];
-
 const CATEGORIES: Record<OperationId, Category[]> = {
   comprar: [
     {
@@ -49,7 +41,6 @@ const CATEGORIES: Record<OperationId, Category[]> = {
         { label: 'Casa',           id: PROPERTY_TYPE_IDS.Casa },
         { label: 'Barrio Cerrado', id: PROPERTY_TYPE_IDS['Barrio Cerrado'] },
       ],
-      conditions: BUY_CONDITIONS,
     },
     {
       id: 'comercial',
@@ -74,12 +65,6 @@ const CATEGORIES: Record<OperationId, Category[]> = {
       emoji: '🏗',
       types: [
         { label: 'Emprendimiento', id: PROPERTY_TYPE_IDS.Emprendimiento },
-      ],
-      conditions: [
-        { label: 'Lanzamiento',        value: 'launch' },
-        { label: 'En ejecución',       value: 'construction' },
-        { label: 'Próximo a entregar', value: 'almost_complete' },
-        { label: 'Terminados',         value: 'complete' },
       ],
     },
   ],
@@ -152,7 +137,6 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
   const [operation, setOperation] = useState<OperationId | null>(null);
   const [category,  setCategory]  = useState<CategoryId | null>(null);
   const [typeId,    setTypeId]    = useState<number | null>(null);
-  const [condition, setCondition] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const activeLabel = getActiveLabel(filters);
@@ -161,7 +145,7 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
   // Sincronizar estado local con filtros externos (al limpiar)
   useEffect(() => {
     if (!filters.operation_types?.length && !filters.property_types?.length) {
-      setOperation(null); setCategory(null); setTypeId(null); setCondition(null);
+      setOperation(null); setCategory(null); setTypeId(null);
     }
   }, [filters]);
 
@@ -179,7 +163,6 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
     setOperation(op);
     setCategory(null);
     setTypeId(null);
-    setCondition(null);
     // Aplicar filtro base inmediatamente
     onFilterChange({
       operation_types: [op === 'comprar' ? OPERATION_TYPE_IDS.Venta : OPERATION_TYPE_IDS.Alquiler],
@@ -190,13 +173,12 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
   function selectCategory(cat: CategoryId) {
     setCategory(cat);
     setTypeId(null);
-    setCondition(null);
     if (!operation) return;
     // Si la categoría solo tiene un tipo, lo aplicamos directamente
     const cats = CATEGORIES[operation];
     const found = cats.find((c) => c.id === cat);
     if (found && found.types.length === 1) {
-      applyFilters(operation, found.types[0].id, null);
+      applyFilters(operation, found.types[0].id);
       setTypeId(found.types[0].id);
     } else {
       onFilterChange({
@@ -208,29 +190,20 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
   // ── Selección de tipo específico ──────────────────────────
   function selectType(id: number) {
     setTypeId(id);
-    setCondition(null);
-    applyFilters(operation!, id, null);
+    applyFilters(operation!, id);
   }
 
-  // ── Selección de condición ────────────────────────────────
-  function selectCondition(val: string) {
-    const next = condition === val ? null : val;
-    setCondition(next);
-    applyFilters(operation!, typeId, next);
-  }
-
-  function applyFilters(op: OperationId | null, tid: number | null, cond: string | null) {
+  function applyFilters(op: OperationId | null, tid: number | null) {
     if (!op) return;
     const f: PropertyFilters = {
       operation_types: [op === 'comprar' ? OPERATION_TYPE_IDS.Venta : OPERATION_TYPE_IDS.Alquiler],
     };
     if (tid) f.property_types = [tid];
-    if (cond) f.development_status = cond;
     onFilterChange(f);
   }
 
   function clearAll() {
-    setOperation(null); setCategory(null); setTypeId(null); setCondition(null);
+    setOperation(null); setCategory(null); setTypeId(null);
     onFilterChange({});
     setIsOpen(false);
   }
@@ -246,7 +219,7 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
     ? '¿Qué tipo de propiedad?'
     : activeCat && activeCat.types.length > 1 && !typeId
     ? `${activeCat.emoji} ${activeCat.label}`
-    : '¿Algún detalle más?';
+    : 'Filtro aplicado';
 
   // ── Render ────────────────────────────────────────────────
   return (
@@ -307,9 +280,8 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
                   const cat = operation ? CATEGORIES[operation]?.find(c => c.id === category) : null;
                   const singleType = cat && cat.types.length === 1;
 
-                  if (condition)              { setCondition(null); applyFilters(operation, typeId, null); }
-                  else if (typeId && !singleType) { setTypeId(null); setCondition(null); applyFilters(operation, null, null); }
-                  else if (category)          { setCategory(null); setTypeId(null); setCondition(null); applyFilters(operation, null, null); }
+                  if (typeId && !singleType) { setTypeId(null); applyFilters(operation, null); }
+                  else if (category)          { setCategory(null); setTypeId(null); applyFilters(operation, null); }
                   else                        { setOperation(null); onFilterChange({}); }
                 }}
                 className="text-[12px] text-gray-400 dark:text-gray-500 hover:text-gray-800 dark:hover:text-gray-100 transition flex items-center gap-1"
@@ -370,26 +342,12 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
               </FilterSection>
             )}
 
-            {/* ── Paso 4: Condición (si la categoría la tiene) */}
-            {operation && category && activeCat?.conditions && (typeId || activeCat.types.length === 1) && (
-              <FilterSection title={activeCat.id === 'emprendimiento' ? 'Estado del proyecto' : 'Condición'}>
-                {activeCat.conditions.map((c) => (
-                  <Chip
-                    key={c.value}
-                    label={c.label}
-                    active={condition === c.value}
-                    onClick={() => selectCondition(c.value)}
-                  />
-                ))}
-              </FilterSection>
-            )}
-
             {/* Indicador de breadcrumb cuando hay filtros activos */}
             {operation && (
               <div className="flex items-center gap-1.5 text-[11px] text-gray-400 dark:text-gray-500 flex-wrap">
                 <span
                   className="cursor-pointer hover:text-[#0041CE] transition font-medium"
-                  onClick={() => { setOperation(null); setCategory(null); setTypeId(null); setCondition(null); onFilterChange({}); }}
+                  onClick={() => { setOperation(null); setCategory(null); setTypeId(null); onFilterChange({}); }}
                 >
                   {operation === 'comprar' ? 'Comprar' : 'Alquilar'}
                 </span>
@@ -398,7 +356,7 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
                     <span>›</span>
                     <span
                       className="cursor-pointer hover:text-[#0041CE] transition font-medium"
-                      onClick={() => { setCategory(null); setTypeId(null); setCondition(null); applyFilters(operation, null, null); }}
+                      onClick={() => { setCategory(null); setTypeId(null); applyFilters(operation, null); }}
                     >
                       {activeCat?.label}
                     </span>
@@ -409,14 +367,6 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
                     <span>›</span>
                     <span className="font-medium text-gray-600 dark:text-gray-300">
                       {activeCat.types.find((t) => t.id === typeId)?.label}
-                    </span>
-                  </>
-                )}
-                {condition && activeCat?.conditions && (
-                  <>
-                    <span>›</span>
-                    <span className="font-medium text-[#0041CE] dark:text-[#0061FB]">
-                      {activeCat.conditions.find((c) => c.value === condition)?.label}
                     </span>
                   </>
                 )}

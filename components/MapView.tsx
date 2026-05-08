@@ -95,7 +95,7 @@ function popupHTML(prop: Property): string {
   const { price, currency } = getPriceInfo(prop);
   const pl = formatPriceLabel(price, currency);
   const op = prop.operations?.[0]?.name ?? '';
-  const wa = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '5493413492000';
+  const wa = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '5493417538537';
   const wt = encodeURIComponent(`Hola! Me interesa la propiedad en ${prop.address} (${pl}). ¿Pueden darme más información?`);
   const sT = (prop.title ?? '').replace(/'/g, "\\'"), sA = (prop.address ?? '').replace(/'/g, "\\'");
   const raw = prop as unknown as { photos?: { image: string }[] };
@@ -289,10 +289,15 @@ export default function MapView({ properties, selectedId, isDark = false, featur
 
   useEffect(() => { if (!flyToLocation) return; mRef.current?.flyTo({ center: flyToLocation, zoom: 14, duration: 1000 }); }, [flyToLocation]);
 
-  // Fit bounds when filters change
+  // Fit bounds when a specific type filter is applied (not just operation)
   useEffect(() => {
     if (!filterKey || filterKey === prevFilterKey.current) return;
     prevFilterKey.current = filterKey;
+    // Only fitBounds when property_types is set (specific type like Departamento/Terreno)
+    try {
+      const parsed = JSON.parse(filterKey);
+      if (!parsed.property_types || parsed.property_types.length === 0) return;
+    } catch { return; }
     const map = mRef.current;
     if (!map) return;
     const withCoords = properties.filter(p => p.geo_lat && p.geo_long);
