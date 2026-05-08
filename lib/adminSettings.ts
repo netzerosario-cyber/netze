@@ -51,12 +51,21 @@ export async function getSetting(key: string): Promise<unknown> {
         .from('admin_settings')
         .select('value')
         .eq('key', key)
-        .single();
-      if (!error && data) return data.value;
-    } catch { /* fallback a local */ }
+        .maybeSingle();   // maybeSingle no lanza error si no hay fila
+      if (error) {
+        console.error('[AdminSettings] Supabase read error:', error.message);
+      } else if (data) {
+        return data.value;
+      } else {
+        // No hay fila → devolver default
+        return DEFAULTS[key] ?? null;
+      }
+    } catch (e) {
+      console.error('[AdminSettings] Supabase unavailable for read:', e);
+    }
   }
 
-  // Fallback: archivo local
+  // Fallback: archivo local (solo funciona en dev, NO en Vercel)
   const local = readLocal();
   return local[key] ?? DEFAULTS[key] ?? null;
 }
