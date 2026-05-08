@@ -145,36 +145,20 @@ export default function MapView({ properties, selectedId, isDark = false, featur
       .setLngLat(coords).setHTML(popupHTML(prop)).addTo(map);
   }, []);
 
-  // Sync: hide pills that are inside a cluster + LOD by zoom
+  // Sync: hide pills that are inside a cluster, show the rest
   const sync = useCallback((map: mapboxgl.Map) => {
     if (!ready.current) return;
-    const zoom = map.getZoom();
-    // LOD: how many markers to show based on zoom
-    let maxVisible = Infinity;
-    if (zoom < 11) maxVisible = 10;
-    else if (zoom < 12) maxVisible = 20;
-    else if (zoom < 13) maxVisible = 40;
-    else if (zoom < 14) maxVisible = 60;
 
-    // Get all unclustered feature IDs currently rendered
+    // Get all unclustered (individual) feature IDs currently rendered
     const visible = new Set<number>();
     try {
       const fs = map.querySourceFeatures(SRC, { sourceLayer: undefined });
       fs.forEach(f => { if (!f.properties?.cluster) visible.add(f.properties?.id); });
     } catch { /* source not ready */ }
 
-    // Sort markers by score descending for LOD
-    const sorted = Array.from(mkrs.current.entries()).sort((a, b) => b[1].score - a[1].score);
-    let shown = 0;
-
-    sorted.forEach(([id, { el }]) => {
-      const isInCluster = !visible.has(id);
-      if (isInCluster || shown >= maxVisible) {
-        el.style.display = 'none';
-      } else {
-        el.style.display = '';
-        shown++;
-      }
+    mkrs.current.forEach(({ el }, id) => {
+      // Hide if this marker is absorbed into a cluster
+      el.style.display = visible.has(id) ? '' : 'none';
     });
   }, []);
 
