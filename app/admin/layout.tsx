@@ -15,7 +15,7 @@ const NAV_ITEMS = [
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-dvh bg-gray-50 flex flex-col" data-theme="light" style={{ colorScheme: 'light' }}>
+    <div className="fixed inset-0 bg-gray-50 flex flex-col z-40" data-theme="light" style={{ colorScheme: 'light' }}>
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white border-b border-gray-200 h-14 flex items-center px-6 gap-4">
         <Link href="/" className="flex items-center select-none shrink-0">
@@ -55,8 +55,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </nav>
         </aside>
 
-        {/* Content */}
-        <main className="flex-1 p-6 overflow-auto">
+        {/* Content — scroll propio */}
+        <main className="flex-1 p-6 overflow-y-auto">
           {children}
         </main>
       </div>
