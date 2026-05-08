@@ -368,8 +368,14 @@ export async function getProperties(
   // así que re-filtramos aquí para garantizar resultados correctos.
   let finalObjects = objects;
   if (filters.operation_types && filters.operation_types.length > 0) {
-    finalObjects = objects.filter((p) =>
+    finalObjects = finalObjects.filter((p) =>
       p.operations.some((op) => filters.operation_types!.includes(op.id))
+    );
+  }
+  // Tokko tampoco filtra confiablemente por type en /property/
+  if (filters.property_types && filters.property_types.length > 0) {
+    finalObjects = finalObjects.filter((p) =>
+      p.property_type ? filters.property_types!.includes(p.property_type.id) : false
     );
   }
 

@@ -18,13 +18,15 @@ const Ctx = createContext<ThemeCtx>({ theme: 'light', toggle: () => {}, isDark: 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>('light');
 
-  // Leer preferencia guardada (o preferencia del sistema)
+  // Leer preferencia guardada, o default por dispositivo (mobile=dark, desktop=light)
   useEffect(() => {
     const saved = localStorage.getItem('netze-theme') as Theme | null;
     if (saved) {
       setTheme(saved);
-    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      setTheme('dark');
+    } else {
+      // Mobile = dark by default, Desktop = light by default
+      const isMobile = window.innerWidth < 768;
+      setTheme(isMobile ? 'dark' : 'light');
     }
   }, []);
 

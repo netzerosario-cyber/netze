@@ -68,19 +68,36 @@ html.dark .mapboxgl-ctrl-attrib-inner a {
   color: rgba(255,255,255,0.3) !important;
 }
 
-/* Mapbox popup override */
-.mapboxgl-popup-content {
-  border-radius: 14px !important;
-  padding: 0 !important;
-  overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.15) !important;
+/* ── Mapbox touch-action — keep pinch-zoom inside the map ──── */
+.mapboxgl-canvas-container,
+.mapboxgl-canvas {
+  touch-action: none !important;
 }
+
+/* Mapbox popup close button — ensure tappable on mobile */
 .mapboxgl-popup-close-button {
-  font-size: 18px;
-  color: #6b7280;
-  right: 6px;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  z-index: 10 !important;
+  touch-action: manipulation !important;
+  -webkit-tap-highlight-color: transparent;
+  font-size: 22px;
+  width: 32px;
+  height: 32px;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+  right: 4px;
   top: 4px;
-  z-index: 10;
+  color: #fff !important;
+  background: rgba(0,0,0,.45) !important;
+  border-radius: 50% !important;
+}
+.mapboxgl-popup-close-button:hover,
+.mapboxgl-popup-close-button:active {
+  background: rgba(0,0,0,.7) !important;
 }
 
 /* ── Transiciones globales dark ↔ light ────────────────────── */
@@ -95,6 +112,15 @@ html.dark .mapboxgl-ctrl-attrib-inner a {
 /* Excepciones: no queremos transición en transforms, widths, etc */
 .no-color-transition,
 .no-color-transition *  {
+  transition-property: none !important;
+}
+/* Excluir Mapbox del global transition — previene lag táctil */
+.mapboxgl-canvas,
+.mapboxgl-canvas-container,
+.mapboxgl-marker,
+.mapboxgl-popup,
+.mapboxgl-popup-content,
+.mapboxgl-popup-close-button {
   transition-property: none !important;
 }
 

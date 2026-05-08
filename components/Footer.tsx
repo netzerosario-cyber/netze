@@ -31,8 +31,8 @@ export default function Footer() {
           <p className="text-xs text-gray-400">
             Administración Netze · Rosario, Santa Fe
           </p>
-          <a href="tel:+5493413305741" className="text-xs text-gray-400 hover:text-[#0041CE] transition">
-            +54 9 341 330-5741
+          <a href="tel:+5493417538537" className="text-xs text-gray-400 hover:text-[#0041CE] transition">
+            +54 9 341 753-8537
           </a>
         </div>
 

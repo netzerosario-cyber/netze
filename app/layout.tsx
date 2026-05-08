@@ -44,7 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es" suppressHydrationWarning>
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
       </head>
       <body className={`${mazzard.className} ${mazzard.variable} bg-gray-50 dark:bg-[#0d1117] text-gray-900 dark:text-[#bac5d1] antialiased h-dvh flex flex-col overflow-hidden transition-colors duration-300`}>
         <ThemeProvider>

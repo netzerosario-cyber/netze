@@ -47,7 +47,11 @@ export default function PropertyCard({ property, isSelected = false, isFeatured 
 
   return (
     <article
+      role="button"
+      tabIndex={0}
       onClick={() => onClick?.(property.id)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(property.id); } }}
+      style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
       className={`group relative bg-white dark:bg-[#161b22] rounded-2xl overflow-hidden transition-all duration-200 cursor-pointer flex flex-col h-full ${
         isSelected
           ? 'ring-2 ring-[#0041CE] shadow-xl shadow-[#0041CE]/10'
@@ -131,7 +135,7 @@ export default function PropertyCard({ property, isSelected = false, isFeatured 
       {/* ── Info ──────────────────────────────────────────── */}
       <div className="px-2.5 pt-2 pb-2.5 md:p-4 flex flex-col flex-1">
         {/* Precio */}
-        <p className="text-[15px] md:text-[18px] font-bold text-gray-900 dark:text-white leading-tight">
+        <p className="text-[15px] md:text-[18px] font-bold text-gray-900 dark:text-white leading-tight truncate">
           {priceLabel}
         </p>
 
@@ -169,7 +173,7 @@ export default function PropertyCard({ property, isSelected = false, isFeatured 
         </div>
 
         {/* CTAs — una sola fila compacta */}
-        <div className="flex items-center gap-1.5 mt-auto">
+        <div className="flex items-center gap-1.5 mt-auto min-w-0">
           {/* WhatsApp — icono en mobile, texto en desktop */}
           <a
             href={waUrl}
