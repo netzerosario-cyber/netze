@@ -18,10 +18,11 @@ function buildWhatsAppUrl(property: Property, price: string): string {
 interface PropertyCardProps {
   property: Property;
   isSelected?: boolean;
+  isFeatured?: boolean;
   onClick?: (id: number) => void;
 }
 
-export default function PropertyCard({ property, isSelected = false, onClick }: PropertyCardProps) {
+export default function PropertyCard({ property, isSelected = false, isFeatured = false, onClick }: PropertyCardProps) {
   const { toggleFavorito, esFavorito } = useFavoritos();
   const { toggleComparar, isSeleccionada } = useComparador();
   const isFav = esFavorito(property.id);
@@ -50,7 +51,9 @@ export default function PropertyCard({ property, isSelected = false, onClick }: 
       className={`group relative bg-white dark:bg-[#161b22] rounded-2xl overflow-hidden transition-all duration-200 cursor-pointer flex flex-col h-full ${
         isSelected
           ? 'ring-2 ring-[#0041CE] shadow-xl shadow-[#0041CE]/10'
-          : 'shadow-sm hover:shadow-lg border border-gray-100 dark:border-[#30363d]'
+          : isFeatured
+            ? 'ring-2 ring-amber-400/60 shadow-md shadow-amber-100 border border-amber-200'
+            : 'shadow-sm hover:shadow-lg border border-gray-100 dark:border-[#30363d]'
       } ${isComp ? 'ring-2 ring-[#0061FB]' : ''}`}
     >
       {/* ── Toast compartir ──────────────────────────────────── */}
@@ -80,12 +83,19 @@ export default function PropertyCard({ property, isSelected = false, onClick }: 
           </div>
         )}
 
-        {/* Badge operación */}
-        {operationType && (
-          <span className="absolute top-3 left-3 bg-white/95 dark:bg-[#161b22]/95 backdrop-blur-sm text-gray-700 dark:text-gray-200 text-[11px] font-semibold px-2.5 py-1 rounded-full shadow-sm">
-            {operationType}
-          </span>
-        )}
+        {/* Badge operación + destacada */}
+        <div className="absolute top-3 left-3 flex items-center gap-1.5">
+          {operationType && (
+            <span className="bg-white/95 dark:bg-[#161b22]/95 backdrop-blur-sm text-gray-700 dark:text-gray-200 text-[11px] font-semibold px-2.5 py-1 rounded-full shadow-sm">
+              {operationType}
+            </span>
+          )}
+          {isFeatured && (
+            <span className="bg-amber-400 text-amber-900 text-[10px] font-bold px-2 py-1 rounded-full shadow-sm">
+              ⭐ Destacada
+            </span>
+          )}
+        </div>
 
         {/* Acciones top-right: favorito + compartir */}
         <div className="absolute top-3 right-3 flex items-center gap-1.5">

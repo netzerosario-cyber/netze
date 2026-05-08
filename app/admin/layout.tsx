@@ -36,7 +36,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </Link>
       </header>
 
-      <div className="flex flex-1">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Sidebar */}
         <aside className="w-56 shrink-0 border-r border-gray-200 bg-white hidden md:block">
           <nav className="p-4 flex flex-col gap-1">

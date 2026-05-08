@@ -8,6 +8,7 @@ interface PropertyListProps {
   selectedId?: number | null;
   loading?: boolean;
   hasMore?: boolean;
+  featuredIds?: number[];
   onSelect: (id: number) => void;
   onLoadMore?: () => void;
 }
@@ -35,7 +36,7 @@ function SkeletonCard() {
   );
 }
 
-export default function PropertyList({ properties, selectedId, loading = false, hasMore = false, onSelect, onLoadMore }: PropertyListProps) {
+export default function PropertyList({ properties, selectedId, loading = false, hasMore = false, featuredIds = [], onSelect, onLoadMore }: PropertyListProps) {
   const selectedRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -85,7 +86,7 @@ export default function PropertyList({ properties, selectedId, loading = false, 
             const isSel = property.id === selectedId;
             return (
               <div key={property.id} ref={isSel ? selectedRef : null}>
-                <PropertyCard property={property} isSelected={isSel} onClick={onSelect} />
+                <PropertyCard property={property} isSelected={isSel} isFeatured={featuredIds.includes(property.id)} onClick={onSelect} />
               </div>
             );
           })}

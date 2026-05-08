@@ -157,6 +157,7 @@ export default function HomePage() {
             selectedId={selectedId}
             loading={loading}
             hasMore={hasMore}
+            featuredIds={featuredIds}
             onSelect={setSelectedId}
             onLoadMore={() => fetchProperties(filters, offset, true)}
           />
@@ -238,6 +239,7 @@ export default function HomePage() {
             selectedId={selectedId}
             loading={loading}
             hasMore={hasMore}
+            featuredIds={featuredIds}
             onSelect={setSelectedId}
             onLoadMore={() => fetchProperties(filters, offset, true)}
           />
