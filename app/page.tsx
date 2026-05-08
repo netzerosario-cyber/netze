@@ -105,8 +105,13 @@ export default function HomePage() {
   const hasMore = allProps.length < totalCount;
 
   function handleMapSelect(id: number) {
+    // Mobile: ir directo al detalle
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      window.location.href = `/propiedad/${id}`;
+      return;
+    }
+    // Desktop: seleccionar en lista
     setSelectedId(id);
-    setMobileTab('list');
   }
 
 
