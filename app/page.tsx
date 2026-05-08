@@ -116,12 +116,18 @@ export default function HomePage() {
       {/* Navbar con buscador integrado */}
       <Navbar onLocationSelect={(center) => { setFlyToLoc(center); setTimeout(() => setFlyToLoc(null), 100); }} />
 
+      {/* SmartFilter — siempre visible (fixed positioning), fuera de los tabs */}
+      <SmartFilter
+        filters={filters}
+        onFilterChange={setFilters}
+        resultCount={visibleProps.length}
+      />
+
       {/* ─────────────── DESKTOP: split 60/40 ─────────────── */}
       <div className="hidden md:flex flex-1 overflow-hidden pt-14">
 
         {/* Mapa */}
         <div className="flex-[6] relative">
-          {/* MapView: nunca se re-monta, sus props cambian reactivamente */}
           <MapView
             properties={allProps}
             selectedId={selectedId}
@@ -129,13 +135,6 @@ export default function HomePage() {
             onBoundsChange={setBbox}
             onPropertySelect={handleMapSelect}
             flyToLocation={flyToLoc}
-          />
-
-          {/* SmartFilter sobre el mapa */}
-          <SmartFilter
-            filters={filters}
-            onFilterChange={setFilters}
-            resultCount={visibleProps.length}
           />
 
           {/* Badge mock */}
@@ -178,13 +177,6 @@ export default function HomePage() {
             onBoundsChange={setBbox}
             onPropertySelect={handleMapSelect}
             flyToLocation={flyToLoc}
-          />
-
-          {/* SmartFilter sobre el mapa */}
-          <SmartFilter
-            filters={filters}
-            onFilterChange={setFilters}
-            resultCount={visibleProps.length}
           />
 
           {/* Badge mock */}
