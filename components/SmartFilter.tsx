@@ -26,8 +26,6 @@ interface Category {
   label: string;
   emoji: string;
   types: Array<{ label: string; id: number }>;
-  /** Solo Comprar tiene estado de condición */
-  conditions?: Array<{ label: string; value: string }>;
 }
 
 const CATEGORIES: Record<OperationId, Category[]> = {

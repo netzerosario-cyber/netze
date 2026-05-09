@@ -99,6 +99,11 @@ export default function PropertyCard({ property, isSelected = false, isFeatured 
               ⭐ Destacada
             </span>
           )}
+          {property._geoStatus && property._geoStatus !== 'valid' && (
+            <span className="bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 text-[10px] font-semibold px-2 py-1 rounded-full shadow-sm" title="Esta propiedad no aparece en el mapa">
+              📍 Ubicación aproximada
+            </span>
+          )}
         </div>
 
         {/* Acciones top-right: favorito + compartir */}

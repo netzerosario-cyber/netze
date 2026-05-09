@@ -7,6 +7,7 @@
 // NEXT_PUBLIC_TOKKO_API_KEY está vacío. Se desactiva solo
 // al agregar la key real en .env.local.
 // ============================================================
+import { validateCoordinates, getValidationReasonLabel } from './geoValidation';
 
 const TOKKO_BASE_URL = 'https://www.tokkobroker.com/api/v1';
 
@@ -61,6 +62,9 @@ export interface PropertyProducer {
   cellphone: string | null;
 }
 
+/** Estado de validación geográfica de la propiedad */
+export type GeoStatus = 'valid' | 'imprecise' | 'no_coords';
+
 export interface Property {
   id: number;
   title: string;
@@ -112,6 +116,8 @@ export interface Property {
   tags: Array<{ id: number; name: string }>;
   extra_attributes: Array<{ id: number; name: string; value: string; attribute_type: string }>;
   videos: Array<{ url: string; title: string }>;
+  /** Resultado de la validación de coordenadas */
+  _geoStatus?: GeoStatus;
 }
 
 
@@ -360,6 +366,28 @@ export async function getProperties(
     extra_attributes:    p.extra_attributes ?? [],
     videos:              p.videos ?? [],
   }));
+
+  // ── Validación + corrección de coordenadas ────────────────
+  // Sistema completo: cache Supabase → validación bbox/río → 
+  // fallback geocoding Mapbox → logging
+  try {
+    const { validateAndCorrectCoordinates } = await import('./geoCorrection');
+    await validateAndCorrectCoordinates(objects);
+  } catch (err) {
+    // Fallback: si geoCorrection falla, aplicar validación básica inline
+    console.error('[Netze Geo] geoCorrection service error, falling back to basic validation:', err);
+    for (const prop of objects) {
+      const v = validateCoordinates(prop.geo_lat, prop.geo_long);
+      if (v.isValid) {
+        prop._geoStatus = 'valid';
+      } else {
+        prop._geoStatus = v.reason === 'missing' || v.reason === 'zero_coords' ? 'no_coords' : 'imprecise';
+        prop.geo_lat = null;
+        prop.geo_long = null;
+        console.warn(`[Netze Geo] ${prop.id} (${prop.address}): ${getValidationReasonLabel(v.reason)}`);
+      }
+    }
+  }
 
   console.info(`[Netze] Tokko devolvió ${raw.meta?.total_count ?? '?'} propiedades`);
 

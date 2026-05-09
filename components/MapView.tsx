@@ -1,8 +1,8 @@
 'use client';
 // ============================================================
 // components/MapView.tsx — Pills + clustering nativo
-// Touch-optimized: touch-action, touchend handlers, bigger hitboxes
-// Score-based LOD: fewer markers at low zoom, all at high zoom
+// Touch-optimized for mobile. Clustering groups nearby properties.
+// Pills show for unclustered points, hide when inside a cluster.
 // ============================================================
 import { useEffect, useRef, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
@@ -13,7 +13,7 @@ const CENTER: [number, number] = [-60.6505, -32.9468];
 const ZOOM = 12;
 const SRC = 'props';
 const CLUSTER_R = 40;
-const CLUSTER_Z = 13;
+const CLUSTER_Z = 14;
 
 export interface BoundingBox { north: number; south: number; east: number; west: number; }
 interface Props {
@@ -27,22 +27,7 @@ interface Props {
   filterKey?: string;
 }
 
-// ── Score computation ────────────────────────────────────────
-function computeScore(p: Property, featuredIds: number[]): number {
-  let s = 0;
-  if (featuredIds.includes(p.id)) s += 50;
-  const photoCount = (p as unknown as { photos?: unknown[] }).photos?.length ?? 0;
-  if (photoCount >= 5) s += 20;
-  else if (photoCount >= 3) s += 10;
-  const { price } = getPriceInfo(p);
-  if (price && price > 0) s += 15;
-  if (p.description) s += 10;
-  if (p.surface_total && p.surface_total > 0) s += 5;
-  if (p.geo_lat && p.geo_long) s += 5;
-  return s;
-}
-
-// ── CSS: touch-action + bigger hit areas ─────────────────────
+// ── Pill CSS — touch-optimized ───────────────────────────────
 const CSS = `
 .np{cursor:pointer;display:inline-flex;flex-direction:column;align-items:center;pointer-events:auto;touch-action:manipulation;-webkit-tap-highlight-color:transparent;position:relative}
 .np::after{content:'';position:absolute;top:-8px;left:-8px;right:-8px;bottom:-4px;z-index:-1}
@@ -62,12 +47,13 @@ function injectCSS() {
   document.head.appendChild(s);
 }
 
-// Popup CSS — close button handled in globals.css now
 function injectPopupCSS() {
   if (document.getElementById('np-popup')) return;
   const s = document.createElement('style'); s.id = 'np-popup';
   s.textContent = `
 .mapboxgl-popup-content{padding:10px!important;border-radius:14px!important;box-shadow:0 8px 30px rgba(0,0,0,.18)!important;overflow:hidden}
+.mapboxgl-popup-close-button{font-size:20px!important;width:32px!important;height:32px!important;right:4px!important;top:4px!important;color:#fff!important;background:rgba(0,0,0,.4)!important;border-radius:50%!important;z-index:10!important;display:flex!important;align-items:center!important;justify-content:center!important;padding:0!important;line-height:32px!important}
+.mapboxgl-popup-close-button:hover{background:rgba(0,0,0,.7)!important}
 `;
   document.head.appendChild(s);
 }
@@ -123,11 +109,11 @@ ${photos.length>1?`
 </div></div></div>`;
 }
 
-export default function MapView({ properties, selectedId, isDark = false, featuredIds = [], onBoundsChange, onPropertySelect, flyToLocation, filterKey }: Props) {
+export default function MapView({ properties, selectedId, isDark = false, onBoundsChange, onPropertySelect, flyToLocation, filterKey }: Props) {
   const cRef = useRef<HTMLDivElement>(null);
   const mRef = useRef<mapboxgl.Map | null>(null);
   const pRef = useRef<mapboxgl.Popup | null>(null);
-  const mkrs = useRef<Map<number, { m: mapboxgl.Marker; el: HTMLDivElement; score: number }>>(new Map());
+  const mkrs = useRef<Map<number, { m: mapboxgl.Marker; el: HTMLDivElement }>>(new Map());
   const propsRef = useRef(properties);
   const onSel = useRef(onPropertySelect);
   const onBnd = useRef(onBoundsChange);
@@ -148,16 +134,12 @@ export default function MapView({ properties, selectedId, isDark = false, featur
   // Sync: hide pills that are inside a cluster, show the rest
   const sync = useCallback((map: mapboxgl.Map) => {
     if (!ready.current) return;
-
-    // Get all unclustered (individual) feature IDs currently rendered
     const visible = new Set<number>();
     try {
       const fs = map.querySourceFeatures(SRC, { sourceLayer: undefined });
       fs.forEach(f => { if (!f.properties?.cluster) visible.add(f.properties?.id); });
     } catch { /* source not ready */ }
-
     mkrs.current.forEach(({ el }, id) => {
-      // Hide if this marker is absorbed into a cluster
       el.style.display = visible.has(id) ? '' : 'none';
     });
   }, []);
@@ -169,9 +151,8 @@ export default function MapView({ properties, selectedId, isDark = false, featur
       if (isNaN(lat) || isNaN(lng)) return;
       const { price, currency } = getPriceInfo(prop);
       const el = makeEl(formatPriceLabel(price, currency), prop.id === selectedId);
-      const score = computeScore(prop, featuredIds);
 
-      // Unified handler for click/touch
+      // Touch-optimized click handler
       let touchHandled = false;
       const handler = () => {
         onSel.current(prop.id);
@@ -183,24 +164,23 @@ export default function MapView({ properties, selectedId, isDark = false, featur
         e.stopPropagation();
         touchHandled = true;
         handler();
-        // Reset flag after event cycle
         setTimeout(() => { touchHandled = false; }, 300);
       }, { passive: false });
 
       el.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (touchHandled) return; // Already handled by touchend
+        if (touchHandled) return;
         handler();
       });
 
       const m = new mapboxgl.Marker({ element: el, anchor: 'bottom' }).setLngLat([lng, lat]).addTo(map);
-      mkrs.current.set(prop.id, { m, el, score });
+      mkrs.current.set(prop.id, { m, el });
     });
     // Remove stale
     const ids = new Set(propsRef.current.map(p => p.id));
     mkrs.current.forEach((v, id) => { if (!ids.has(id)) { v.m.remove(); mkrs.current.delete(id); } });
     sync(map);
-  }, [selectedId, showPopup, sync, featuredIds]);
+  }, [selectedId, showPopup, sync]);
 
   const setupLayers = useCallback((map: mapboxgl.Map) => {
     ready.current = false;
@@ -217,6 +197,7 @@ export default function MapView({ properties, selectedId, isDark = false, featur
       'text-field': '{point_count_abbreviated}', 'text-font': ['DIN Offc Pro Bold', 'Arial Unicode MS Bold'],
       'text-size': 14, 'text-allow-overlap': true }, paint: { 'text-color': '#fff' } });
 
+    // Click on cluster => expand
     map.on('click', 'cl-cir', (e) => {
       const f = map.queryRenderedFeatures(e.point, { layers: ['cl-cir'] });
       if (!f.length) return;
@@ -244,7 +225,6 @@ export default function MapView({ properties, selectedId, isDark = false, featur
       center: CENTER,
       zoom: ZOOM,
       attributionControl: false,
-      // Touch gestures — let Mapbox handle everything
       touchZoomRotate: true,
       dragPan: true,
       dragRotate: false,
@@ -255,29 +235,35 @@ export default function MapView({ properties, selectedId, isDark = false, featur
     map.on('style.load', () => { setupLayers(map); emit(); });
     map.on('moveend', () => { sync(map); emit(); });
     map.on('zoomend', () => { sync(map); });
-    // Also sync when source data finishes loading
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    map.on('data', (e: any) => { if (e.sourceId === SRC && e.isSourceLoaded) sync(map); });
+    // Sync when source data finishes loading
+    map.on('data', (e: mapboxgl.MapDataEvent) => {
+      const ev = e as mapboxgl.MapDataEvent & { sourceId?: string; isSourceLoaded?: boolean };
+      if (ev.sourceId === SRC && ev.isSourceLoaded) sync(map);
+    });
     mRef.current = map;
     return () => { mkrs.current.forEach(v => v.m.remove()); mkrs.current.clear(); map.remove(); mRef.current = null; ready.current = false; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Theme change
   useEffect(() => { const map = mRef.current; if (!map || !map.isStyleLoaded()) return; mkrs.current.forEach(v => v.m.remove()); mkrs.current.clear(); ready.current = false; map.setStyle(isDark ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11'); }, [isDark]);
 
+  // Properties changed — update source + markers
   useEffect(() => { const map = mRef.current; if (!map || !ready.current) return; try { (map.getSource(SRC) as mapboxgl.GeoJSONSource)?.setData(toGeo(properties)); buildMarkers(map); } catch {} }, [properties, buildMarkers]);
 
+  // Selected marker style
   useEffect(() => { mkrs.current.forEach(({ el }, id) => { el.className = `np${id === selectedId ? ' sel' : ''}`; }); }, [selectedId]);
 
+  // Fly to selected
   useEffect(() => { if (!selectedId) return; const map = mRef.current; if (!map) return; const p = properties.find(x => x.id === selectedId); if (!p?.geo_lat || !p?.geo_long) return; const lat = parseFloat(p.geo_lat), lng = parseFloat(p.geo_long); if (isNaN(lat) || isNaN(lng)) return; map.flyTo({ center: [lng, lat], zoom: Math.max(map.getZoom(), 15), duration: 700 }); setTimeout(() => showPopup(map, p, [lng, lat]), 750); }, [selectedId, properties, showPopup]);
 
+  // Fly to search location
   useEffect(() => { if (!flyToLocation) return; mRef.current?.flyTo({ center: flyToLocation, zoom: 14, duration: 1000 }); }, [flyToLocation]);
 
-  // Fit bounds when a specific type filter is applied (not just operation)
+  // Fit bounds when filter changes (e.g. selecting "Terrenos" fits to all terrenos)
   useEffect(() => {
     if (!filterKey || filterKey === prevFilterKey.current) return;
     prevFilterKey.current = filterKey;
-    // Only fitBounds when property_types is set (specific type like Departamento/Terreno)
     try {
       const parsed = JSON.parse(filterKey);
       if (!parsed.property_types || parsed.property_types.length === 0) return;

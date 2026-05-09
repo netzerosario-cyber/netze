@@ -25,15 +25,15 @@ export default function Navbar({ onLocationSelect }: NavbarProps) {
         <Image 
           src="/logos/Logo Principal.svg" 
           alt="Netze Logo" 
-          width={140} 
-          height={46} 
+          width={160} 
+          height={52} 
           className="block dark:hidden object-contain" 
         />
         <Image 
           src="/logos/Para fondos oscuros.svg" 
           alt="Netze Logo" 
-          width={140} 
-          height={46} 
+          width={160} 
+          height={52} 
           className="hidden dark:block object-contain" 
         />
       </Link>
