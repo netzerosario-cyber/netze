@@ -61,6 +61,7 @@ export default function LeadModal({ propiedad, isOpen, onClose }: LeadModalProps
     function handler() {
       if (!closedByBackRef.current) {
         closedByBackRef.current = true;
+        (window as any).__popConsumed = true;
         onClose();
       }
     }
@@ -72,6 +73,7 @@ export default function LeadModal({ propiedad, isOpen, onClose }: LeadModalProps
   const closeViaUI = useCallback(() => {
     if (!closedByBackRef.current) {
       closedByBackRef.current = true;
+      (window as any).__popConsumed = true;
       history.back();
     }
   }, []);

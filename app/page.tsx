@@ -114,9 +114,11 @@ export default function HomePage() {
     return s;
   }
 
-  // ── Filtrado client-side (rooms_min, sub_type) ──────────
+  // ── Filtrado client-side (rooms, rooms_min, sub_type) ─────
   // Tokko no soporta estos filtros, así que los aplicamos aquí
   const clientFilteredProps = allProps.filter((p) => {
+    // rooms: filtrar por cantidad exacta de ambientes
+    if (filters.rooms && (p.rooms == null || p.rooms !== filters.rooms)) return false;
     // rooms_min: filtrar por cantidad mínima de ambientes
     if (filters.rooms_min && (p.rooms == null || p.rooms < filters.rooms_min)) return false;
     // sub_type: buscar en tags, disposition y description

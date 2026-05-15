@@ -6,7 +6,7 @@
 //   Paso 2: Tipo directo (Departamentos, Casas, Cocheras…)
 //   Paso 3: Sub-filtro específico (solo donde aplica)
 // ============================================================
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { PropertyFilters, PROPERTY_TYPE_IDS, OPERATION_TYPE_IDS } from '@/lib/tokko';
 
 interface SmartFilterProps {
@@ -15,14 +15,10 @@ interface SmartFilterProps {
   resultCount: number;
 }
 
-// ── Tipos de operación ──────────────────────────────────────
 type OperationId = 'comprar' | 'alquilar';
-
-// ── Sub-filtros por tipo ────────────────────────────────────
 
 interface SubFilter {
   label: string;
-  /** Filtro parcial que se mergea al aplicar */
   filter: Partial<PropertyFilters>;
 }
 
@@ -30,17 +26,13 @@ interface PropertyTypeOption {
   id: string;
   label: string;
   emoji: string;
-  /** IDs de tipo de propiedad Tokko */
   typeIds: number[];
-  /** Sub-filtros opcionales — si no hay, aplica directo */
   subFilters?: SubFilter[];
 }
 
 const PROPERTY_TYPES: PropertyTypeOption[] = [
   {
-    id: 'departamentos',
-    label: 'Departamentos',
-    emoji: '🏢',
+    id: 'departamentos', label: 'Departamentos', emoji: '🏢',
     typeIds: [PROPERTY_TYPE_IDS.Departamento],
     subFilters: [
       { label: 'Monoambiente',  filter: { rooms: 1 } },
@@ -50,25 +42,16 @@ const PROPERTY_TYPES: PropertyTypeOption[] = [
     ],
   },
   {
-    id: 'casas',
-    label: 'Casas',
-    emoji: '🏠',
+    id: 'casas', label: 'Casas', emoji: '🏠',
     typeIds: [PROPERTY_TYPE_IDS.Casa],
     subFilters: [
       { label: 'Todas',   filter: {} },
       { label: 'Pasillo', filter: { sub_type: 'pasillo' } },
     ],
   },
+  { id: 'cocheras', label: 'Cocheras', emoji: '🚗', typeIds: [PROPERTY_TYPE_IDS.Cochera] },
   {
-    id: 'cocheras',
-    label: 'Cocheras',
-    emoji: '🚗',
-    typeIds: [PROPERTY_TYPE_IDS.Cochera],
-  },
-  {
-    id: 'terrenos',
-    label: 'Terrenos',
-    emoji: '📐',
+    id: 'terrenos', label: 'Terrenos', emoji: '📐',
     typeIds: [PROPERTY_TYPE_IDS.Lote, PROPERTY_TYPE_IDS['Barrio Cerrado']],
     subFilters: [
       { label: 'Barrio Abierto',  filter: { property_types: [PROPERTY_TYPE_IDS.Lote] } },
@@ -76,76 +59,67 @@ const PROPERTY_TYPES: PropertyTypeOption[] = [
     ],
   },
   {
-    id: 'emprendimientos',
-    label: 'Emprendimientos',
-    emoji: '🏗',
+    id: 'emprendimientos', label: 'Emprendimientos', emoji: '🏗',
     typeIds: [PROPERTY_TYPE_IDS.Emprendimiento],
     subFilters: [
       { label: 'Loteos',    filter: { sub_type: 'loteo' } },
       { label: 'Edificios', filter: { sub_type: 'edificio' } },
     ],
   },
-  {
-    id: 'locales',
-    label: 'Locales',
-    emoji: '🏪',
-    typeIds: [PROPERTY_TYPE_IDS.Local],
-  },
-  {
-    id: 'campos',
-    label: 'Campos',
-    emoji: '🌾',
-    typeIds: [PROPERTY_TYPE_IDS.Campo],
-  },
-  {
-    id: 'depositos',
-    label: 'Depósitos / Naves',
-    emoji: '🏭',
-    typeIds: [PROPERTY_TYPE_IDS['Depósito']],
-  },
-  {
-    id: 'oficinas',
-    label: 'Oficinas',
-    emoji: '💼',
-    typeIds: [PROPERTY_TYPE_IDS.Oficina],
-  },
+  { id: 'locales', label: 'Locales', emoji: '🏪', typeIds: [PROPERTY_TYPE_IDS.Local] },
+  { id: 'campos', label: 'Campos', emoji: '🌾', typeIds: [PROPERTY_TYPE_IDS.Campo] },
+  { id: 'depositos', label: 'Depósitos / Naves', emoji: '🏭', typeIds: [PROPERTY_TYPE_IDS['Depósito']] },
+  { id: 'oficinas', label: 'Oficinas', emoji: '💼', typeIds: [PROPERTY_TYPE_IDS.Oficina] },
 ];
+
+// ── Helpers (fuera del componente — sin closures) ────────────
+function _getOpFilter(op: OperationId): number[] {
+  return [op === 'comprar' ? OPERATION_TYPE_IDS.Venta : OPERATION_TYPE_IDS.Alquiler];
+}
+
+function _buildFilters(op: OperationId, typeOpt: PropertyTypeOption, subFilter?: Partial<PropertyFilters>): PropertyFilters {
+  const f: PropertyFilters = { operation_types: _getOpFilter(op) };
+  if (subFilter?.property_types) {
+    f.property_types = subFilter.property_types;
+  } else {
+    f.property_types = typeOpt.typeIds;
+  }
+  if (subFilter) {
+    if (subFilter.rooms) f.rooms = subFilter.rooms;
+    if (subFilter.rooms_min) f.rooms_min = subFilter.rooms_min;
+    if (subFilter.sub_type) f.sub_type = subFilter.sub_type;
+  }
+  return f;
+}
 
 // ── Pill label ───────────────────────────────────────────────
 function getActiveLabel(filters: PropertyFilters): string {
   const isAlq = filters.operation_types?.includes(OPERATION_TYPE_IDS.Alquiler);
   const isVen = filters.operation_types?.includes(OPERATION_TYPE_IDS.Venta);
-
-  // Buscar qué tipo coincide
   const activeType = PROPERTY_TYPES.find((pt) =>
-    filters.property_types?.length &&
-    pt.typeIds.some((id) => filters.property_types!.includes(id))
+    filters.property_types?.length && pt.typeIds.some((id) => filters.property_types!.includes(id))
   );
-
-  // Buscar sub-filtro activo
   let subLabel = '';
   if (activeType?.subFilters) {
     if (filters.rooms) {
-      const roomsSub = activeType.subFilters.find((sf) => sf.filter.rooms === filters.rooms);
-      if (roomsSub) subLabel = ` · ${roomsSub.label}`;
+      const s = activeType.subFilters.find((sf) => sf.filter.rooms === filters.rooms);
+      if (s) subLabel = ` · ${s.label}`;
     } else if (filters.rooms_min) {
-      const roomsMinSub = activeType.subFilters.find((sf) => sf.filter.rooms_min === filters.rooms_min);
-      if (roomsMinSub) subLabel = ` · ${roomsMinSub.label}`;
+      const s = activeType.subFilters.find((sf) => sf.filter.rooms_min === filters.rooms_min);
+      if (s) subLabel = ` · ${s.label}`;
     } else if (filters.sub_type) {
-      const stSub = activeType.subFilters.find((sf) => sf.filter.sub_type === filters.sub_type);
-      if (stSub) subLabel = ` · ${stSub.label}`;
+      const s = activeType.subFilters.find((sf) => sf.filter.sub_type === filters.sub_type);
+      if (s) subLabel = ` · ${s.label}`;
     } else if (filters.property_types?.length === 1) {
-      // Para terrenos: si seleccionó un sub-tipo específico
-      const ptSub = activeType.subFilters.find(
+      const s = activeType.subFilters.find(
         (sf) => sf.filter.property_types?.length === 1 && sf.filter.property_types[0] === filters.property_types![0]
       );
-      if (ptSub) subLabel = ` · ${ptSub.label}`;
+      if (s) subLabel = ` · ${s.label}`;
     }
   }
-
-  const typeName = activeType?.label ?? '';
-  if (isAlq) return typeName ? `Alquilar · ${typeName}${subLabel}` : 'Alquilar';
-  if (isVen) return typeName ? `Comprar · ${typeName}${subLabel}` : 'Comprar';
+  const tn = activeType?.label ?? '';
+  if (isAlq) return tn ? `Alquilar · ${tn}${subLabel}` : 'Alquilar';
+  if (isVen) return tn ? `Comprar · ${tn}${subLabel}` : 'Comprar';
   return 'Explorá propiedades';
 }
 
@@ -157,6 +131,20 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
   const [subFilterIdx, setSubFilterIdx] = useState<number | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // ── REFS para popstate handler (evita closures stale) ─────
+  const isOpenRef    = useRef(false);
+  const opRef        = useRef<OperationId | null>(null);
+  const typeRef      = useRef<string | null>(null);
+  const subRef       = useRef<number | null>(null);
+  const fcRef        = useRef(onFilterChange);
+  const sfHistCount  = useRef(0); // cuántas entries nuestras hay en el history stack
+
+  useEffect(() => { isOpenRef.current = isOpen; }, [isOpen]);
+  useEffect(() => { opRef.current = operation; }, [operation]);
+  useEffect(() => { typeRef.current = selectedType; }, [selectedType]);
+  useEffect(() => { subRef.current = subFilterIdx; }, [subFilterIdx]);
+  useEffect(() => { fcRef.current = onFilterChange; }, [onFilterChange]);
+
   const activeLabel = getActiveLabel(filters);
   const hasFilters  = !!(filters.operation_types?.length || filters.property_types?.length);
 
@@ -167,36 +155,14 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
     }
   }, [filters]);
 
-  // ── helpers ──────────────────────────────────────────────────
-  function getOperationFilter(op: OperationId): number[] {
-    return [op === 'comprar' ? OPERATION_TYPE_IDS.Venta : OPERATION_TYPE_IDS.Alquiler];
-  }
-
-  function buildFilters(op: OperationId, typeOpt: PropertyTypeOption | null, subFilter?: Partial<PropertyFilters>): PropertyFilters {
-    const f: PropertyFilters = { operation_types: getOperationFilter(op) };
-    if (typeOpt) {
-      if (subFilter?.property_types) {
-        f.property_types = subFilter.property_types;
-      } else {
-        f.property_types = typeOpt.typeIds;
-      }
-      if (subFilter) {
-        if (subFilter.rooms) f.rooms = subFilter.rooms;
-        if (subFilter.rooms_min) f.rooms_min = subFilter.rooms_min;
-        if (subFilter.sub_type) f.sub_type = subFilter.sub_type;
-      }
-    }
-    return f;
-  }
-
-  // ── Acciones de navegación (SIN tocar historial) ──────────
-  // El historial se maneja SOLO en el popstate handler y open/close
-
+  // ── Acciones ──────────────────────────────────────────────
   function selectOperation(op: OperationId) {
     setOperation(op);
     setSelectedType(null);
     setSubFilterIdx(null);
-    onFilterChange({ operation_types: getOperationFilter(op) });
+    onFilterChange({ operation_types: _getOpFilter(op) });
+    sfHistCount.current++;
+    history.pushState({ type: 'sf' }, '');
   }
 
   function selectType(typeId: string) {
@@ -204,117 +170,90 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
     if (!typeOpt || !operation) return;
     setSelectedType(typeId);
     setSubFilterIdx(null);
-    onFilterChange(buildFilters(operation, typeOpt));
+    onFilterChange(_buildFilters(operation, typeOpt));
+    sfHistCount.current++;
+    history.pushState({ type: 'sf' }, '');
   }
 
   function selectSubFilter(idx: number) {
     const typeOpt = PROPERTY_TYPES.find((t) => t.id === selectedType);
     if (!typeOpt?.subFilters || !operation) return;
     setSubFilterIdx(idx);
-    const sf = typeOpt.subFilters[idx];
-    onFilterChange(buildFilters(operation, typeOpt, sf.filter));
+    onFilterChange(_buildFilters(operation, typeOpt, typeOpt.subFilters[idx].filter));
+    sfHistCount.current++;
+    history.pushState({ type: 'sf' }, '');
   }
 
-  // Volver un paso (llamado desde UI "Volver" y breadcrumbs)
-  function goBackStep() {
-    if (subFilterIdx !== null) {
-      setSubFilterIdx(null);
-      if (operation) {
-        const typeOpt = PROPERTY_TYPES.find(t => t.id === selectedType);
-        if (typeOpt) onFilterChange(buildFilters(operation, typeOpt));
-      }
-    } else if (selectedType) {
-      setSelectedType(null);
-      setSubFilterIdx(null);
-      if (operation) onFilterChange({ operation_types: getOperationFilter(operation) });
-    } else if (operation) {
-      setOperation(null);
-      onFilterChange({});
-    }
-  }
-
-  // Ir a un paso específico (para breadcrumbs)
-  function goToOperation() {
-    setSelectedType(null);
-    setSubFilterIdx(null);
-    if (operation) onFilterChange({ operation_types: getOperationFilter(operation) });
-  }
-
-  function goToStart() {
-    setOperation(null);
-    setSelectedType(null);
-    setSubFilterIdx(null);
-    onFilterChange({});
-  }
-
-  function clearAll() {
-    goToStart();
-    setIsOpen(false);
-  }
-
-  // ── Abrir/cerrar panel (ÚNICO lugar que toca historial) ───
   function openPanel() {
     setIsOpen(true);
+    sfHistCount.current++;
     history.pushState({ type: 'sf' }, '');
   }
 
   function closePanel() {
     setIsOpen(false);
-    // Solo hacer back si hay una entry nuestra
-    // Usamos replaceState para limpiar nuestro state sin navegar
   }
 
-  function togglePanel() {
-    if (isOpen) {
-      closePanel();
-    } else {
-      openPanel();
+  function clearAll() {
+    setOperation(null); setSelectedType(null); setSubFilterIdx(null);
+    onFilterChange({});
+    setIsOpen(false);
+    // Limpiar todas nuestras entries del historial
+    if (sfHistCount.current > 0) {
+      const n = sfHistCount.current;
+      sfHistCount.current = 0;
+      history.go(-n);
     }
   }
 
-  // ── Popstate handler (botón atrás del celular) ────────────
-  // Estrategia simple: UNA sola entry de historial por panel abierto.
-  // Al tocar back: si el panel está abierto, volver un paso o cerrar.
-  // Si el panel está cerrado, no hacer nada (navegación normal).
+  // ── Popstate handler (UNA sola instancia, lee refs) ───────
   useEffect(() => {
-    function handler(e: PopStateEvent) {
-      if (!isOpen) return; // panel cerrado, no nos incumbe
+    function handler() {
+      // Ignorar si otro componente ya consumió este evento
+      if ((window as any).__popConsumed) {
+        (window as any).__popConsumed = false;
+        return;
+      }
+      // Si no tenemos entries, no nos incumbe
+      if (sfHistCount.current <= 0) return;
+      sfHistCount.current--;
 
-      // El panel está abierto y se tocó atrás
-      if (subFilterIdx !== null) {
-        // Estaba en sub-filtro → volver a tipo
-        const typeOpt = PROPERTY_TYPES.find(t => t.id === selectedType);
+      const curSub  = subRef.current;
+      const curType = typeRef.current;
+      const curOp   = opRef.current;
+      const wasOpen = isOpenRef.current;
+      const fc      = fcRef.current;
+
+      if (curSub !== null) {
+        // Paso 3 → Paso 2 (quitar sub-filtro, mostrar lista de sub-filtros)
         setSubFilterIdx(null);
-        if (operation && typeOpt) onFilterChange(buildFilters(operation, typeOpt));
-        // Re-push para seguir capturando el botón atrás
-        history.pushState({ type: 'sf' }, '');
-      } else if (selectedType) {
-        // Estaba en tipo → volver a operación
+        const typeOpt = PROPERTY_TYPES.find(t => t.id === curType);
+        if (curOp && typeOpt) fc(_buildFilters(curOp, typeOpt));
+        if (!wasOpen) setIsOpen(true);
+      } else if (curType !== null) {
+        // Paso 2 → Paso 1 (quitar tipo, mostrar grid de tipos)
         setSelectedType(null);
         setSubFilterIdx(null);
-        if (operation) onFilterChange({ operation_types: getOperationFilter(operation) });
-        history.pushState({ type: 'sf' }, '');
-      } else if (operation) {
-        // Estaba en operación → volver al inicio del panel
+        if (curOp) fc({ operation_types: _getOpFilter(curOp) });
+        if (!wasOpen) setIsOpen(true);
+      } else if (curOp !== null) {
+        // Paso 1 → Inicio (quitar operación)
         setOperation(null);
-        onFilterChange({});
-        history.pushState({ type: 'sf' }, '');
-      } else {
-        // Ya estaba en el inicio → cerrar panel
+        fc({});
+        if (!wasOpen) setIsOpen(true);
+      } else if (wasOpen) {
+        // Panel abierto sin filtros → cerrar
         setIsOpen(false);
-        // NO re-push, dejamos que el back natural ocurra
       }
     }
     window.addEventListener('popstate', handler);
     return () => window.removeEventListener('popstate', handler);
-  }, [isOpen, operation, selectedType, subFilterIdx, onFilterChange]);
+  }, []); // Empty deps! Lee todo de refs
 
   // Cerrar al clickar fuera
   useEffect(() => {
     function handler(e: MouseEvent) {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) setIsOpen(false);
     }
     if (isOpen) document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -332,6 +271,11 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
     ? `${activeTypeOpt!.emoji} ${activeTypeOpt!.label}`
     : 'Filtro aplicado';
 
+  // UI "Volver" button — simplemente hace history.back()
+  function goBack() {
+    if (sfHistCount.current > 0) history.back();
+  }
+
   // ── Render ────────────────────────────────────────────────
   return (
     <>
@@ -341,7 +285,7 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
       >
         {/* Pill */}
         <button
-          onClick={togglePanel}
+          onClick={() => { if (isOpen) closePanel(); else openPanel(); }}
           className={[
             'flex items-center gap-2.5 pl-4 pr-3 py-2.5 rounded-full shadow-lg pointer-events-auto',
             'text-sm font-semibold transition-all duration-200 active:scale-[0.97] select-none ring-1',
@@ -385,7 +329,7 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
             </p>
             {operation && (
               <button
-                onClick={goBackStep}
+                onClick={goBack}
                 className="text-[12px] text-gray-400 dark:text-gray-500 hover:text-gray-800 dark:hover:text-gray-100 transition flex items-center gap-1"
               >
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -397,7 +341,7 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
           </div>
 
           <div className="p-4 space-y-4">
-            {/* ── Paso 1: Comprar / Alquilar ─────────────── */}
+            {/* Paso 1: Comprar / Alquilar */}
             {!operation && (
               <div className="grid grid-cols-2 gap-3">
                 {([
@@ -419,7 +363,7 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
               </div>
             )}
 
-            {/* ── Paso 2: Tipos de propiedad ──────────────── */}
+            {/* Paso 2: Tipos de propiedad */}
             {operation && !selectedType && (
               <div className="grid grid-cols-3 gap-2">
                 {PROPERTY_TYPES.map((pt) => (
@@ -435,7 +379,7 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
               </div>
             )}
 
-            {/* ── Paso 3: Sub-filtros ────────────────────── */}
+            {/* Paso 3: Sub-filtros */}
             {operation && selectedType && hasSubFilters && (
               <div className="space-y-2">
                 <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-0.5">
@@ -463,19 +407,13 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
             {/* Breadcrumb */}
             {operation && (
               <div className="flex items-center gap-1.5 text-[11px] text-gray-400 dark:text-gray-500 flex-wrap">
-                <span
-                  className="cursor-pointer hover:text-[#0041CE] transition font-medium"
-                  onClick={goToStart}
-                >
+                <span className="cursor-pointer hover:text-[#0041CE] transition font-medium" onClick={goBack}>
                   {operation === 'comprar' ? 'Comprar' : 'Alquilar'}
                 </span>
                 {selectedType && activeTypeOpt && (
                   <>
                     <span>›</span>
-                    <span
-                      className="cursor-pointer hover:text-[#0041CE] transition font-medium"
-                      onClick={goToOperation}
-                    >
+                    <span className="cursor-pointer hover:text-[#0041CE] transition font-medium" onClick={goBack}>
                       {activeTypeOpt.label}
                     </span>
                   </>
@@ -502,7 +440,7 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
                 Limpiar
               </button>
               <button
-                onClick={() => setIsOpen(false)}
+                onClick={closePanel}
                 className="flex-[2] py-2.5 text-sm font-semibold bg-[#0041CE] hover:bg-[#0034a8] text-white rounded-xl transition active:scale-[0.98] flex items-center justify-center gap-2"
               >
                 Ver propiedades
@@ -521,7 +459,7 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
       {isOpen && (
         <div
           className="fixed inset-0 z-[199] md:hidden bg-black/10 dark:bg-black/30"
-          onClick={() => setIsOpen(false)}
+          onClick={closePanel}
         />
       )}
     </>

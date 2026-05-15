@@ -27,6 +27,7 @@ function LightboxContent({ images, initialIndex = 0, onClose }: LightboxProps) {
   const closeViaUI = useCallback(() => {
     if (closedRef.current) return;
     closedRef.current = true;
+    (window as any).__popConsumed = true;
     history.back();
   }, []);
 
@@ -36,6 +37,7 @@ function LightboxContent({ images, initialIndex = 0, onClose }: LightboxProps) {
     function handler() {
       if (!closedRef.current) {
         closedRef.current = true;
+        (window as any).__popConsumed = true;
         onClose();
       }
     }

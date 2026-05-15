@@ -21,6 +21,7 @@ export default function Comparador() {
     function handler() {
       if (!closedByBackRef.current) {
         closedByBackRef.current = true;
+        (window as any).__popConsumed = true;
         setModalOpen(false);
       }
     }
@@ -31,6 +32,7 @@ export default function Comparador() {
   const closeModal = useCallback(() => {
     if (!closedByBackRef.current) {
       closedByBackRef.current = true;
+      (window as any).__popConsumed = true;
       setModalOpen(false);
       history.back();
     }

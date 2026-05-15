@@ -245,6 +245,7 @@ export default function MapView({ properties, selectedId, isDark = false, onBoun
   useEffect(() => {
     const onBack = () => {
       if (mapCardPushed.current && !cardClosedRef.current) {
+        (window as any).__popConsumed = true;
         closeCard();
       }
     };
@@ -427,7 +428,10 @@ export default function MapView({ properties, selectedId, isDark = false, onBoun
           if (cardClosedRef.current) return;
           const shouldGoBack = mapCardPushed.current;
           closeCard();
-          if (shouldGoBack) history.back();
+          if (shouldGoBack) {
+            (window as any).__popConsumed = true;
+            history.back();
+          }
         }} />
       )}
     </div>
