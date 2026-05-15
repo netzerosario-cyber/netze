@@ -224,7 +224,7 @@ export default function MapView({ properties, selectedId, isDark = false, onBoun
     savedView.current = { center: map.getCenter().toArray() as [number, number], zoom: map.getZoom() };
     cardClosedRef.current = false;
     setActiveProperty(prop);
-    history.pushState({ mapCard: true }, '');
+    history.pushState({ type: 'mc' }, '');
     map.easeTo({ center: coords, zoom: Math.max(map.getZoom(), 15), duration: 400 });
   }, []);
 
@@ -241,12 +241,14 @@ export default function MapView({ properties, selectedId, isDark = false, onBoun
     }
   }, []);
 
-  // Botón atrás cierra la card (popstate ya consumió el entry)
+  // Botón atrás cierra la card — solo si nuestra entry fue la que se popó
   useEffect(() => {
-    const onBack = () => {
-      if (activeRef.current && !cardClosedRef.current) {
-        closeCard();
-      }
+    const onBack = (e: PopStateEvent) => {
+      // Solo reaccionar si hay card abierta Y el estado destino NO es 'mc'
+      // (si llegamos a un estado que no es mc, significa que mc fue popped)
+      if (!activeRef.current || cardClosedRef.current) return;
+      if (e.state?.type === 'mc') return; // llegamos a mc, no nos fuimos
+      closeCard();
     };
     window.addEventListener('popstate', onBack);
     return () => window.removeEventListener('popstate', onBack);
@@ -399,6 +401,7 @@ export default function MapView({ properties, selectedId, isDark = false, onBoun
     cardClosedRef.current = false;
     map.easeTo({ center: [lng, lat], zoom: Math.max(map.getZoom(), 15), duration: 400 });
     setActiveProperty(p);
+    history.pushState({ type: 'mc' }, '');
   }, [selectedId, properties]);
 
   useEffect(() => { if (!flyToLocation) return; mRef.current?.flyTo({ center: flyToLocation, zoom: 14, duration: 1000 }); }, [flyToLocation]);
@@ -421,7 +424,11 @@ export default function MapView({ properties, selectedId, isDark = false, onBoun
     <div style={{ position: 'relative', width: '100%', height: '100%' }} className={isDark ? 'dark-map' : 'light-map'}>
       <div ref={cRef} className="w-full h-full" />
       {activeProperty && (
-        <BottomCard prop={activeProperty} onClose={() => { closeCard(); history.back(); }} />
+        <BottomCard prop={activeProperty} onClose={() => {
+          if (cardClosedRef.current) return;
+          closeCard();
+          history.back();
+        }} />
       )}
     </div>
   );
