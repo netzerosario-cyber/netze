@@ -151,27 +151,14 @@ function getActiveLabel(filters: PropertyFilters): string {
 
 // ── Componente principal ─────────────────────────────────────
 export default function SmartFilter({ filters, onFilterChange, resultCount }: SmartFilterProps) {
-  const [isOpen,      setIsOpen]      = useState(false);
-  const [operation,   setOperation]   = useState<OperationId | null>(null);
+  const [isOpen,       setIsOpen]       = useState(false);
+  const [operation,    setOperation]    = useState<OperationId | null>(null);
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [subFilterIdx, setSubFilterIdx] = useState<number | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Refs para acceso estable en popstate handler
-  const operationRef    = useRef<OperationId | null>(null);
-  const selectedTypeRef = useRef<string | null>(null);
-
-  // Depth tracking para historial:
-  // 0=cerrado, 1=panel abierto, 2=operación, 3=tipo, 4=sub-filtro
-  const depthRef   = useRef(0);
-  const skipPopRef = useRef(false);
-
   const activeLabel = getActiveLabel(filters);
   const hasFilters  = !!(filters.operation_types?.length || filters.property_types?.length);
-
-  // Sincronizar refs
-  useEffect(() => { operationRef.current = operation; }, [operation]);
-  useEffect(() => { selectedTypeRef.current = selectedType; }, [selectedType]);
 
   // Sincronizar estado local con filtros externos
   useEffect(() => {
@@ -202,105 +189,132 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
     return f;
   }
 
-  // ── Abrir/cerrar panel ────────────────────────────────────
-  function openPanel() {
-    setIsOpen(true);
-    depthRef.current = 1;
-    history.pushState({ type: 'sf', step: 1 }, '');
-  }
+  // ── Acciones de navegación (SIN tocar historial) ──────────
+  // El historial se maneja SOLO en el popstate handler y open/close
 
-  function closePanel() {
-    setIsOpen(false);
-    const d = depthRef.current;
-    if (d > 0) {
-      depthRef.current = 0;
-      skipPopRef.current = true;
-      history.go(-d);
-    }
-  }
-
-  function togglePanel() {
-    if (isOpen) closePanel(); else openPanel();
-  }
-
-  // ── Selección de operación ────────────────────────────────
   function selectOperation(op: OperationId) {
     setOperation(op);
     setSelectedType(null);
     setSubFilterIdx(null);
     onFilterChange({ operation_types: getOperationFilter(op) });
-    depthRef.current = 2;
-    history.pushState({ type: 'sf', step: 2 }, '');
   }
 
-  // ── Selección de tipo ─────────────────────────────────────
   function selectType(typeId: string) {
     const typeOpt = PROPERTY_TYPES.find((t) => t.id === typeId);
     if (!typeOpt || !operation) return;
     setSelectedType(typeId);
     setSubFilterIdx(null);
     onFilterChange(buildFilters(operation, typeOpt));
-    depthRef.current = 3;
-    history.pushState({ type: 'sf', step: 3 }, '');
   }
 
-  // ── Selección de sub-filtro ───────────────────────────────
   function selectSubFilter(idx: number) {
     const typeOpt = PROPERTY_TYPES.find((t) => t.id === selectedType);
     if (!typeOpt?.subFilters || !operation) return;
     setSubFilterIdx(idx);
     const sf = typeOpt.subFilters[idx];
     onFilterChange(buildFilters(operation, typeOpt, sf.filter));
-    depthRef.current = 4;
-    history.pushState({ type: 'sf', step: 4 }, '');
+  }
+
+  // Volver un paso (llamado desde UI "Volver" y breadcrumbs)
+  function goBackStep() {
+    if (subFilterIdx !== null) {
+      setSubFilterIdx(null);
+      if (operation) {
+        const typeOpt = PROPERTY_TYPES.find(t => t.id === selectedType);
+        if (typeOpt) onFilterChange(buildFilters(operation, typeOpt));
+      }
+    } else if (selectedType) {
+      setSelectedType(null);
+      setSubFilterIdx(null);
+      if (operation) onFilterChange({ operation_types: getOperationFilter(operation) });
+    } else if (operation) {
+      setOperation(null);
+      onFilterChange({});
+    }
+  }
+
+  // Ir a un paso específico (para breadcrumbs)
+  function goToOperation() {
+    setSelectedType(null);
+    setSubFilterIdx(null);
+    if (operation) onFilterChange({ operation_types: getOperationFilter(operation) });
+  }
+
+  function goToStart() {
+    setOperation(null);
+    setSelectedType(null);
+    setSubFilterIdx(null);
+    onFilterChange({});
   }
 
   function clearAll() {
-    setOperation(null); setSelectedType(null); setSubFilterIdx(null);
-    onFilterChange({});
+    goToStart();
     setIsOpen(false);
-    const d = depthRef.current;
-    depthRef.current = 0;
-    if (d > 0) { skipPopRef.current = true; history.go(-d); }
   }
 
-  // ── Popstate handler (botón atrás) ────────────────────────
+  // ── Abrir/cerrar panel (ÚNICO lugar que toca historial) ───
+  function openPanel() {
+    setIsOpen(true);
+    history.pushState({ type: 'sf' }, '');
+  }
+
+  function closePanel() {
+    setIsOpen(false);
+    // Solo hacer back si hay una entry nuestra
+    // Usamos replaceState para limpiar nuestro state sin navegar
+  }
+
+  function togglePanel() {
+    if (isOpen) {
+      closePanel();
+    } else {
+      openPanel();
+    }
+  }
+
+  // ── Popstate handler (botón atrás del celular) ────────────
+  // Estrategia simple: UNA sola entry de historial por panel abierto.
+  // Al tocar back: si el panel está abierto, volver un paso o cerrar.
+  // Si el panel está cerrado, no hacer nada (navegación normal).
   useEffect(() => {
     function handler(e: PopStateEvent) {
-      if (skipPopRef.current) { skipPopRef.current = false; return; }
-      if (depthRef.current <= 0) return;
-      // e.state es el estado al que LLEGAMOS — solo reaccionar
-      // si estamos retrocediendo por nuestras entries
-      const targetStep = (e.state?.type === 'sf') ? (e.state.step as number) : 0;
-      if (targetStep >= depthRef.current) return;
+      if (!isOpen) return; // panel cerrado, no nos incumbe
 
-      depthRef.current = targetStep;
-
-      if (targetStep === 0) {
-        setIsOpen(false); setOperation(null); setSelectedType(null); setSubFilterIdx(null);
-        onFilterChange({});
-      } else if (targetStep === 1) {
-        setOperation(null); setSelectedType(null); setSubFilterIdx(null);
-        onFilterChange({});
-      } else if (targetStep === 2) {
-        setSelectedType(null); setSubFilterIdx(null);
-        const op = operationRef.current;
-        if (op) onFilterChange({ operation_types: getOperationFilter(op) });
-      } else if (targetStep === 3) {
+      // El panel está abierto y se tocó atrás
+      if (subFilterIdx !== null) {
+        // Estaba en sub-filtro → volver a tipo
+        const typeOpt = PROPERTY_TYPES.find(t => t.id === selectedType);
         setSubFilterIdx(null);
-        const op = operationRef.current;
-        const typeOpt = PROPERTY_TYPES.find(t => t.id === selectedTypeRef.current);
-        if (op && typeOpt) onFilterChange(buildFilters(op, typeOpt));
+        if (operation && typeOpt) onFilterChange(buildFilters(operation, typeOpt));
+        // Re-push para seguir capturando el botón atrás
+        history.pushState({ type: 'sf' }, '');
+      } else if (selectedType) {
+        // Estaba en tipo → volver a operación
+        setSelectedType(null);
+        setSubFilterIdx(null);
+        if (operation) onFilterChange({ operation_types: getOperationFilter(operation) });
+        history.pushState({ type: 'sf' }, '');
+      } else if (operation) {
+        // Estaba en operación → volver al inicio del panel
+        setOperation(null);
+        onFilterChange({});
+        history.pushState({ type: 'sf' }, '');
+      } else {
+        // Ya estaba en el inicio → cerrar panel
+        setIsOpen(false);
+        // NO re-push, dejamos que el back natural ocurra
       }
     }
     window.addEventListener('popstate', handler);
     return () => window.removeEventListener('popstate', handler);
-  }, [onFilterChange]);
+  }, [isOpen, operation, selectedType, subFilterIdx, onFilterChange]);
 
   // Cerrar al clickar fuera
   useEffect(() => {
     function handler(e: MouseEvent) {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) closePanel();
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
     }
     if (isOpen) document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -317,11 +331,6 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
     : hasSubFilters && subFilterIdx === null
     ? `${activeTypeOpt!.emoji} ${activeTypeOpt!.label}`
     : 'Filtro aplicado';
-
-  // ── Función de retroceso (botón UI "Volver") ──────────────
-  function goBack() {
-    if (depthRef.current > 0) history.back();
-  }
 
   // ── Render ────────────────────────────────────────────────
   return (
@@ -376,7 +385,7 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
             </p>
             {operation && (
               <button
-                onClick={goBack}
+                onClick={goBackStep}
                 className="text-[12px] text-gray-400 dark:text-gray-500 hover:text-gray-800 dark:hover:text-gray-100 transition flex items-center gap-1"
               >
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -456,7 +465,7 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
               <div className="flex items-center gap-1.5 text-[11px] text-gray-400 dark:text-gray-500 flex-wrap">
                 <span
                   className="cursor-pointer hover:text-[#0041CE] transition font-medium"
-                  onClick={() => { setOperation(null); setSelectedType(null); setSubFilterIdx(null); onFilterChange({}); }}
+                  onClick={goToStart}
                 >
                   {operation === 'comprar' ? 'Comprar' : 'Alquilar'}
                 </span>
@@ -465,7 +474,7 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
                     <span>›</span>
                     <span
                       className="cursor-pointer hover:text-[#0041CE] transition font-medium"
-                      onClick={() => { setSelectedType(null); setSubFilterIdx(null); if (operation) onFilterChange({ operation_types: getOperationFilter(operation) }); }}
+                      onClick={goToOperation}
                     >
                       {activeTypeOpt.label}
                     </span>
@@ -493,7 +502,7 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
                 Limpiar
               </button>
               <button
-                onClick={closePanel}
+                onClick={() => setIsOpen(false)}
                 className="flex-[2] py-2.5 text-sm font-semibold bg-[#0041CE] hover:bg-[#0034a8] text-white rounded-xl transition active:scale-[0.98] flex items-center justify-center gap-2"
               >
                 Ver propiedades
@@ -512,7 +521,7 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
       {isOpen && (
         <div
           className="fixed inset-0 z-[199] md:hidden bg-black/10 dark:bg-black/30"
-          onClick={closePanel}
+          onClick={() => setIsOpen(false)}
         />
       )}
     </>

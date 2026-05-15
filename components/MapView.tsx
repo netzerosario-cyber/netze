@@ -203,26 +203,26 @@ export default function MapView({ properties, selectedId, isDark = false, onBoun
   const initialFitDone = useRef(false);
   const iconsAdded = useRef(new Set<string>());
   const [activeProperty, setActiveProperty] = useState<Property | null>(null);
-  const activeRef = useRef<Property | null>(null);
   const cardClosedRef = useRef(false);
   // Guardar posición del mapa antes de hacer zoom a una propiedad
   const savedView = useRef<{ center: [number, number]; zoom: number } | null>(null);
+  // Track si nosotros pusheamos un state de historial
+  const mapCardPushed = useRef(false);
 
   useEffect(() => { onSel.current = onPropertySelect; }, [onPropertySelect]);
   useEffect(() => { onBnd.current = onBoundsChange; }, [onBoundsChange]);
   useEffect(() => { propsRef.current = properties; }, [properties]);
 
-  // Sync ref con state
-  useEffect(() => { activeRef.current = activeProperty; }, [activeProperty]);
+
 
   const handlePillClick = useCallback((map: mapboxgl.Map, pid: number, coords: [number, number]) => {
     const prop = propsRef.current.find(p => p.id === pid);
     if (!prop) return;
     onSel.current(pid);
     track(pid, 'map_click', prop.title, prop.address);
-    // Guardar vista actual antes de hacer zoom
     savedView.current = { center: map.getCenter().toArray() as [number, number], zoom: map.getZoom() };
     cardClosedRef.current = false;
+    mapCardPushed.current = true;
     setActiveProperty(prop);
     history.pushState({ type: 'mc' }, '');
     map.easeTo({ center: coords, zoom: Math.max(map.getZoom(), 15), duration: 400 });
@@ -232,8 +232,8 @@ export default function MapView({ properties, selectedId, isDark = false, onBoun
   const closeCard = useCallback(() => {
     if (cardClosedRef.current) return;
     cardClosedRef.current = true;
+    mapCardPushed.current = false;
     setActiveProperty(null);
-    // Restaurar vista guardada
     const map = mRef.current;
     if (map && savedView.current) {
       map.easeTo({ center: savedView.current.center, zoom: savedView.current.zoom, duration: 400 });
@@ -241,14 +241,12 @@ export default function MapView({ properties, selectedId, isDark = false, onBoun
     }
   }, []);
 
-  // Botón atrás cierra la card — solo si nuestra entry fue la que se popó
+  // Botón atrás cierra la card
   useEffect(() => {
-    const onBack = (e: PopStateEvent) => {
-      // Solo reaccionar si hay card abierta Y el estado destino NO es 'mc'
-      // (si llegamos a un estado que no es mc, significa que mc fue popped)
-      if (!activeRef.current || cardClosedRef.current) return;
-      if (e.state?.type === 'mc') return; // llegamos a mc, no nos fuimos
-      closeCard();
+    const onBack = () => {
+      if (mapCardPushed.current && !cardClosedRef.current) {
+        closeCard();
+      }
     };
     window.addEventListener('popstate', onBack);
     return () => window.removeEventListener('popstate', onBack);
@@ -399,6 +397,7 @@ export default function MapView({ properties, selectedId, isDark = false, onBoun
     // Guardar vista actual
     savedView.current = { center: map.getCenter().toArray() as [number, number], zoom: map.getZoom() };
     cardClosedRef.current = false;
+    mapCardPushed.current = true;
     map.easeTo({ center: [lng, lat], zoom: Math.max(map.getZoom(), 15), duration: 400 });
     setActiveProperty(p);
     history.pushState({ type: 'mc' }, '');
@@ -426,8 +425,9 @@ export default function MapView({ properties, selectedId, isDark = false, onBoun
       {activeProperty && (
         <BottomCard prop={activeProperty} onClose={() => {
           if (cardClosedRef.current) return;
+          const shouldGoBack = mapCardPushed.current;
           closeCard();
-          history.back();
+          if (shouldGoBack) history.back();
         }} />
       )}
     </div>
