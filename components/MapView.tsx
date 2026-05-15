@@ -134,16 +134,18 @@ function BottomCard({ prop, onClose }: { prop: Property; onClose: () => void }) 
     >
       <style>{`@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
 
-      {/* Close */}
+      {/* Close — above everything, large touch target for mobile */}
       <button
-        onClick={(e) => { e.stopPropagation(); onClose(); }}
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }}
+        aria-label="Cerrar"
         style={{
-          position: 'absolute', top: 10, right: 10, zIndex: 60,
-          width: 36, height: 36, borderRadius: '50%',
-          background: 'rgba(0,0,0,.5)', border: 'none', color: '#fff',
-          fontSize: 20, cursor: 'pointer', display: 'flex',
+          position: 'absolute', top: 8, right: 8, zIndex: 999,
+          width: 44, height: 44, borderRadius: '50%',
+          background: 'rgba(0,0,0,.6)', border: 'none', color: '#fff',
+          fontSize: 22, cursor: 'pointer', display: 'flex',
           alignItems: 'center', justifyContent: 'center',
           WebkitTapHighlightColor: 'transparent',
+          touchAction: 'manipulation',
         }}
       >×</button>
 

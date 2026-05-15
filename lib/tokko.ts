@@ -292,9 +292,11 @@ export async function getProperties(
   if (filters.operation_types && filters.operation_types.length > 0) {
     params.set('operation_id', String(filters.operation_types[0]));
   }
-  // Filtros por tipo de propiedad: type
+  // Filtros por tipo de propiedad: type (Tokko acepta múltiples params)
   if (filters.property_types && filters.property_types.length > 0) {
-    params.set('type', String(filters.property_types[0]));
+    // Tokko /property/ endpoint: para múltiples tipos, enviar cada uno
+    // como parámetro separado: type=1&type=13
+    filters.property_types.forEach(t => params.append('type', String(t)));
   }
   if (filters.development_status) {
     params.set('development_status', filters.development_status);

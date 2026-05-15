@@ -51,7 +51,7 @@ const PROPERTY_TYPES: PropertyTypeOption[] = [
   },
   { id: 'cocheras', label: 'Cocheras', emoji: '🚗', typeIds: [PROPERTY_TYPE_IDS.Cochera] },
   {
-    id: 'terrenos', label: 'Terrenos', emoji: '📐',
+    id: 'terrenos', label: 'Terrenos', emoji: '📍',
     typeIds: [PROPERTY_TYPE_IDS.Lote, PROPERTY_TYPE_IDS['Barrio Cerrado']],
     subFilters: [
       { label: 'Barrio Abierto',  filter: { property_types: [PROPERTY_TYPE_IDS.Lote] } },
