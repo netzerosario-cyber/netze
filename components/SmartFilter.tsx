@@ -156,9 +156,13 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [subFilterIdx, setSubFilterIdx] = useState<number | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const isOpenRef = useRef(false);
 
   const activeLabel = getActiveLabel(filters);
   const hasFilters  = !!(filters.operation_types?.length || filters.property_types?.length);
+
+  // Mantener ref sincronizado
+  useEffect(() => { isOpenRef.current = isOpen; }, [isOpen]);
 
   // Sincronizar estado local con filtros externos (al limpiar)
   useEffect(() => {
@@ -167,10 +171,76 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
     }
   }, [filters]);
 
+  // ── Abrir/cerrar panel con soporte de botón atrás ─────────
+  function openPanel() {
+    setIsOpen(true);
+    history.pushState({ smartFilter: true }, '');
+  }
+  function closePanel() {
+    if (isOpenRef.current) {
+      setIsOpen(false);
+      history.back(); // consume la entry del pushState
+    }
+  }
+  function togglePanel() {
+    if (isOpen) closePanel(); else openPanel();
+  }
+
+  // Botón atrás del navegador — navegar pasos o cerrar panel
+  useEffect(() => {
+    function handler() {
+      if (!isOpenRef.current) return;
+      // El popstate ya consumió la entry; hacemos goBack visual
+      // y re-pushamos si seguimos dentro del panel
+      setSubFilterIdx((prevSub) => {
+        if (prevSub !== null) {
+          // Estaba en sub-filtro → volver a tipo
+          history.pushState({ smartFilter: true }, '');
+          return null;
+        }
+        return prevSub;
+      });
+      // Usamos timeout mínimo para que el setState anterior se procese
+      setTimeout(() => {
+        setSubFilterIdx((currentSub) => {
+          if (currentSub !== null) return currentSub; // ya se manejó arriba
+          setSelectedType((prevType) => {
+            if (prevType !== null) {
+              // Estaba en tipo → volver a operación
+              history.pushState({ smartFilter: true }, '');
+              return null;
+            }
+            return prevType;
+          });
+          setTimeout(() => {
+            setSelectedType((currentType) => {
+              if (currentType !== null) return currentType;
+              setOperation((prevOp) => {
+                if (prevOp !== null) {
+                  // Estaba en operación → volver al inicio del panel
+                  history.pushState({ smartFilter: true }, '');
+                  onFilterChange({});
+                  return null;
+                }
+                // Ya estaba al inicio → cerrar panel (no re-push)
+                setIsOpen(false);
+                return null;
+              });
+              return currentType;
+            });
+          }, 0);
+          return currentSub;
+        });
+      }, 0);
+    }
+    window.addEventListener('popstate', handler);
+    return () => window.removeEventListener('popstate', handler);
+  }, [onFilterChange]);
+
   // Cerrar al clickar fuera
   useEffect(() => {
     function handler(e: MouseEvent) {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) setIsOpen(false);
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) closePanel();
     }
     if (isOpen) document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -207,6 +277,7 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
     setSelectedType(null);
     setSubFilterIdx(null);
     onFilterChange({ operation_types: getOperationFilter(op) });
+    history.pushState({ smartFilter: true }, '');
   }
 
   // ── Selección de tipo ─────────────────────────────────────
@@ -224,6 +295,7 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
       // Con sub-filtros → aplicar el tipo base y esperar selección
       onFilterChange(buildFilters(operation, typeOpt));
     }
+    history.pushState({ smartFilter: true }, '');
   }
 
   // ── Selección de sub-filtro ───────────────────────────────
@@ -240,6 +312,7 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
     setOperation(null); setSelectedType(null); setSubFilterIdx(null);
     onFilterChange({});
     setIsOpen(false);
+    history.back(); // consume pushState
   }
 
   // ── Info del tipo activo ──────────────────────────────────
@@ -286,7 +359,7 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
       >
         {/* Pill */}
         <button
-          onClick={() => setIsOpen((o) => !o)}
+          onClick={togglePanel}
           className={[
             'flex items-center gap-2.5 pl-4 pr-3 py-2.5 rounded-full shadow-lg pointer-events-auto',
             'text-sm font-semibold transition-all duration-200 active:scale-[0.97] select-none ring-1',
@@ -447,7 +520,7 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
                 Limpiar
               </button>
               <button
-                onClick={() => setIsOpen(false)}
+                onClick={closePanel}
                 className="flex-[2] py-2.5 text-sm font-semibold bg-[#0041CE] hover:bg-[#0034a8] text-white rounded-xl transition active:scale-[0.98] flex items-center justify-center gap-2"
               >
                 Ver propiedades
@@ -466,7 +539,7 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
       {isOpen && (
         <div
           className="fixed inset-0 z-[199] md:hidden bg-black/10 dark:bg-black/30"
-          onClick={() => setIsOpen(false)}
+          onClick={closePanel}
         />
       )}
     </>

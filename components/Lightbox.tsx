@@ -4,7 +4,7 @@
 // Se renderiza como portal en document.body para evitar issues de
 // scroll/overflow del contenedor padre
 // ============================================================
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 
 interface LightboxProps {
@@ -17,21 +17,42 @@ function LightboxContent({ images, initialIndex = 0, onClose }: LightboxProps) {
   const [idx, setIdx] = useState(initialIndex);
   const [loaded, setLoaded] = useState(false);
   const [animate, setAnimate] = useState(false);
+  const closedRef = useRef(false);
 
   const total = images.length;
   const goPrev = useCallback(() => { setLoaded(false); setIdx(i => (i - 1 + total) % total); }, [total]);
   const goNext = useCallback(() => { setLoaded(false); setIdx(i => (i + 1) % total); }, [total]);
 
+  // Cerrar via UI (no back button) — consume history entry
+  const closeViaUI = useCallback(() => {
+    if (closedRef.current) return;
+    closedRef.current = true;
+    history.back();
+  }, []);
+
+  // Botón atrás del navegador
+  useEffect(() => {
+    history.pushState({ lightbox: true }, '');
+    function handler() {
+      if (!closedRef.current) {
+        closedRef.current = true;
+        onClose();
+      }
+    }
+    window.addEventListener('popstate', handler);
+    return () => window.removeEventListener('popstate', handler);
+  }, [onClose]);
+
   // Keyboard navigation
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') closeViaUI();
       if (e.key === 'ArrowLeft') goPrev();
       if (e.key === 'ArrowRight') goNext();
     }
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [onClose, goPrev, goNext]);
+  }, [closeViaUI, goPrev, goNext]);
 
   // Prevent ALL scrolling
   useEffect(() => {
@@ -63,11 +84,11 @@ function LightboxContent({ images, initialIndex = 0, onClose }: LightboxProps) {
   return (
     <div
       className={`fixed inset-0 z-[9999] flex items-center justify-center transition-all duration-300 ${animate ? 'bg-black/95 backdrop-blur-md' : 'bg-black/0'}`}
-      onClick={onClose}
+      onClick={closeViaUI}
     >
       {/* Close button */}
       <button
-        onClick={onClose}
+        onClick={closeViaUI}
         className="absolute top-4 right-4 z-10 w-12 h-12 flex items-center justify-center rounded-full bg-white/15 hover:bg-white/25 text-white transition-colors"
         aria-label="Cerrar"
       >

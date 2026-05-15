@@ -3,7 +3,7 @@
 // components/Comparador.tsx
 // Barra flotante + Modal de comparación de propiedades (máx 3)
 // ============================================================
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useComparador } from '@/lib/comparador';
@@ -12,6 +12,29 @@ import { getPriceInfo, formatPriceLabel, getFrontPhoto } from '@/lib/tokko';
 export default function Comparador() {
   const { seleccionadas, toggleComparar, limpiar } = useComparador();
   const [modalOpen, setModalOpen] = useState(false);
+  const closedByBackRef = useRef(false);
+
+  // Botón atrás del navegador — cerrar modal de comparación
+  useEffect(() => {
+    if (!modalOpen) { closedByBackRef.current = false; return; }
+    history.pushState({ comparador: true }, '');
+    function handler() {
+      if (!closedByBackRef.current) {
+        closedByBackRef.current = true;
+        setModalOpen(false);
+      }
+    }
+    window.addEventListener('popstate', handler);
+    return () => window.removeEventListener('popstate', handler);
+  }, [modalOpen]);
+
+  const closeModal = useCallback(() => {
+    if (!closedByBackRef.current) {
+      closedByBackRef.current = true;
+      setModalOpen(false);
+      history.back();
+    }
+  }, []);
 
   if (seleccionadas.length < 2 && !modalOpen) return null;
 
@@ -61,7 +84,7 @@ export default function Comparador() {
 
       {/* ── Modal comparación ───────────────────────────────── */}
       {modalOpen && (
-        <div className="fixed inset-0 z-[600] bg-black/70 backdrop-blur-sm flex flex-col" onClick={() => setModalOpen(false)}>
+        <div className="fixed inset-0 z-[600] bg-black/70 backdrop-blur-sm flex flex-col" onClick={closeModal}>
           <div
             className="relative bg-white dark:bg-[#0d1117] flex flex-col h-full md:h-auto md:max-h-[90vh] md:m-auto md:w-full md:max-w-4xl md:rounded-2xl overflow-hidden shadow-2xl"
             onClick={(e) => e.stopPropagation()}
@@ -80,7 +103,7 @@ export default function Comparador() {
                   Limpiar
                 </button>
                 <button
-                  onClick={() => setModalOpen(false)}
+                  onClick={closeModal}
                   className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-[#21262d] transition text-gray-500 dark:text-gray-400"
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>

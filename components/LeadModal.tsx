@@ -5,7 +5,7 @@
 // Modal de captación de leads — inserta en Supabase tabla leads
 // ============================================================
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { Property } from '@/lib/tokko';
 
@@ -46,11 +46,35 @@ export default function LeadModal({ propiedad, isOpen, onClose }: LeadModalProps
   // Cerrar con Escape
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') closeViaUI();
     }
     if (isOpen) document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
   }, [isOpen, onClose]);
+
+  // ── Botón atrás del navegador ─────────────────────────
+  const closedByBackRef = useRef(false);
+
+  useEffect(() => {
+    if (!isOpen) { closedByBackRef.current = false; return; }
+    history.pushState({ leadModal: true }, '');
+    function handler() {
+      if (!closedByBackRef.current) {
+        closedByBackRef.current = true;
+        onClose();
+      }
+    }
+    window.addEventListener('popstate', handler);
+    return () => window.removeEventListener('popstate', handler);
+  }, [isOpen, onClose]);
+
+  // Cerrar via UI — consume history entry
+  const closeViaUI = useCallback(() => {
+    if (!closedByBackRef.current) {
+      closedByBackRef.current = true;
+      history.back();
+    }
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -89,7 +113,7 @@ export default function LeadModal({ propiedad, isOpen, onClose }: LeadModalProps
       {/* Backdrop */}
       <div
         className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
-        onClick={onClose}
+        onClick={closeViaUI}
         aria-hidden="true"
       />
 
@@ -103,7 +127,7 @@ export default function LeadModal({ propiedad, isOpen, onClose }: LeadModalProps
         <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 relative">
           {/* Cerrar */}
           <button
-            onClick={onClose}
+            onClick={closeViaUI}
             className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 transition-colors text-xl leading-none"
             aria-label="Cerrar"
           >
@@ -198,7 +222,7 @@ export default function LeadModal({ propiedad, isOpen, onClose }: LeadModalProps
                 Te contactaremos a <strong>{email}</strong> a la brevedad.
               </p>
               <button
-                onClick={onClose}
+                onClick={closeViaUI}
                 className="mt-2 px-5 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:border-gray-600 transition"
               >
                 Cerrar
