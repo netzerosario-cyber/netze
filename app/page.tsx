@@ -116,7 +116,7 @@ export default function HomePage() {
 
   // ── Filtrado client-side ────────────────────────────────────
   // La API de Tokko filtra por operation_type y un solo type.
-  // Todo lo demás (múltiples types, rooms, sub_type) se filtra aquí.
+  // Todo lo demás (múltiples types, rooms, suites, sub_type) se filtra aquí.
   const clientFilteredProps = allProps.filter((p) => {
     // property_types: cuando hay múltiples types (ej: Terrenos = Lote + Barrio Cerrado)
     // o cuando el API no filtró por type
@@ -126,11 +126,13 @@ export default function HomePage() {
       }
     }
     // rooms: filtrar por cantidad exacta de ambientes
-    // Si la propiedad no tiene room_amount cargado, la INCLUIMOS
-    // (no podemos asumir que no coincide — dato faltante en Tokko)
-    if (filters.rooms && p.rooms != null && p.rooms !== filters.rooms) return false;
+    if (filters.rooms && p.rooms != null && p.rooms > 0 && p.rooms !== filters.rooms) return false;
     // rooms_min: filtrar por cantidad mínima de ambientes
-    if (filters.rooms_min && p.rooms != null && p.rooms < filters.rooms_min) return false;
+    if (filters.rooms_min && p.rooms != null && p.rooms > 0 && p.rooms < filters.rooms_min) return false;
+    // suites: filtrar por cantidad exacta de dormitorios (suite_amount en Tokko)
+    if (filters.suites != null && p.suite_amount != null && p.suite_amount !== filters.suites) return false;
+    // suites_min: filtrar por cantidad mínima de dormitorios
+    if (filters.suites_min != null && p.suite_amount != null && p.suite_amount < filters.suites_min) return false;
     // sub_type: buscar en tags, disposition, description, title y tipo de propiedad
     if (filters.sub_type) {
       const st = filters.sub_type.toLowerCase();

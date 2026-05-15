@@ -35,10 +35,10 @@ const PROPERTY_TYPES: PropertyTypeOption[] = [
     id: 'departamentos', label: 'Departamentos', emoji: '🏢',
     typeIds: [PROPERTY_TYPE_IDS.Departamento],
     subFilters: [
-      { label: 'Monoambiente',  filter: { rooms: 1 } },
-      { label: '1 Dormitorio',  filter: { rooms: 2 } },
-      { label: '2 Dormitorios', filter: { rooms: 3 } },
-      { label: '3 Dorm. o más', filter: { rooms_min: 4 } },
+      { label: 'Monoambiente',  filter: { suites: 0 } },
+      { label: '1 Dormitorio',  filter: { suites: 1 } },
+      { label: '2 Dormitorios', filter: { suites: 2 } },
+      { label: '3 Dorm. o más', filter: { suites_min: 3 } },
     ],
   },
   {
@@ -52,7 +52,7 @@ const PROPERTY_TYPES: PropertyTypeOption[] = [
   { id: 'cocheras', label: 'Cocheras', emoji: '🚗', typeIds: [PROPERTY_TYPE_IDS.Cochera] },
   {
     id: 'terrenos', label: 'Terrenos', emoji: '📍',
-    typeIds: [PROPERTY_TYPE_IDS.Lote, PROPERTY_TYPE_IDS['Barrio Cerrado']],
+    typeIds: [PROPERTY_TYPE_IDS.Lote],
     subFilters: [
       { label: 'Barrio Abierto',  filter: { property_types: [PROPERTY_TYPE_IDS.Lote] } },
       { label: 'Barrio Cerrado',  filter: { property_types: [PROPERTY_TYPE_IDS['Barrio Cerrado']] } },
@@ -87,6 +87,8 @@ function _buildFilters(op: OperationId, typeOpt: PropertyTypeOption, subFilter?:
   if (subFilter) {
     if (subFilter.rooms) f.rooms = subFilter.rooms;
     if (subFilter.rooms_min) f.rooms_min = subFilter.rooms_min;
+    if (subFilter.suites != null) f.suites = subFilter.suites;
+    if (subFilter.suites_min != null) f.suites_min = subFilter.suites_min;
     if (subFilter.sub_type) f.sub_type = subFilter.sub_type;
   }
   return f;
@@ -101,21 +103,18 @@ function getActiveLabel(filters: PropertyFilters): string {
   );
   let subLabel = '';
   if (activeType?.subFilters) {
-    if (filters.rooms) {
-      const s = activeType.subFilters.find((sf) => sf.filter.rooms === filters.rooms);
-      if (s) subLabel = ` · ${s.label}`;
-    } else if (filters.rooms_min) {
-      const s = activeType.subFilters.find((sf) => sf.filter.rooms_min === filters.rooms_min);
-      if (s) subLabel = ` · ${s.label}`;
-    } else if (filters.sub_type) {
-      const s = activeType.subFilters.find((sf) => sf.filter.sub_type === filters.sub_type);
-      if (s) subLabel = ` · ${s.label}`;
-    } else if (filters.property_types?.length === 1) {
-      const s = activeType.subFilters.find(
-        (sf) => sf.filter.property_types?.length === 1 && sf.filter.property_types[0] === filters.property_types![0]
-      );
-      if (s) subLabel = ` · ${s.label}`;
-    }
+    // Buscar sub-filtro activo por cualquier campo
+    const match = activeType.subFilters.find((sf) => {
+      if (sf.filter.suites != null && filters.suites === sf.filter.suites) return true;
+      if (sf.filter.suites_min != null && filters.suites_min === sf.filter.suites_min) return true;
+      if (sf.filter.rooms && filters.rooms === sf.filter.rooms) return true;
+      if (sf.filter.rooms_min && filters.rooms_min === sf.filter.rooms_min) return true;
+      if (sf.filter.sub_type && filters.sub_type === sf.filter.sub_type) return true;
+      if (sf.filter.property_types?.length === 1 && filters.property_types?.length === 1
+          && sf.filter.property_types[0] === filters.property_types[0]) return true;
+      return false;
+    });
+    if (match) subLabel = ` · ${match.label}`;
   }
   const tn = activeType?.label ?? '';
   if (isAlq) return tn ? `Alquilar · ${tn}${subLabel}` : 'Alquilar';

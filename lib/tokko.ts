@@ -180,10 +180,14 @@ export interface PropertyFilters {
   price_from?: number;
   /** Precio máximo */
   price_to?: number;
-  /** Ambientes exactos */
+  /** Ambientes exactos (room_amount en Tokko) */
   rooms?: number;
   /** Ambientes mínimos (para "3 o más") */
   rooms_min?: number;
+  /** Dormitorios exactos (suite_amount en Tokko) */
+  suites?: number;
+  /** Dormitorios mínimos */
+  suites_min?: number;
   /** Sub-tipo textual: 'pasillo', 'loteo', 'edificio' */
   sub_type?: string;
 }
