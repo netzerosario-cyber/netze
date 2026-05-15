@@ -48,7 +48,7 @@ export default function HomePage() {
   const [totalCount,   setTotalCount]   = useState(0);
   const [bbox,         setBbox]         = useState<BoundingBox | null>(null);
   const [selectedId,   setSelectedId]   = useState<number | null>(null);
-  const [mobileTab,    setMobileTab]    = useState<'map' | 'list'>('map');
+  const [mobileTab,    setMobileTabRaw]    = useState<'map' | 'list'>('map');
   const [isMock,       setIsMock]       = useState(false);
   const [flyToLoc,     setFlyToLoc]     = useState<[number, number] | null>(null);
   const [featuredIds,  setFeaturedIds]  = useState<number[]>([]);
@@ -114,8 +114,25 @@ export default function HomePage() {
     return s;
   }
 
+  // ── Filtrado client-side (rooms_min, sub_type) ──────────
+  // Tokko no soporta estos filtros, así que los aplicamos aquí
+  const clientFilteredProps = allProps.filter((p) => {
+    // rooms_min: filtrar por cantidad mínima de ambientes
+    if (filters.rooms_min && (p.rooms == null || p.rooms < filters.rooms_min)) return false;
+    // sub_type: buscar en tags, disposition y description
+    if (filters.sub_type) {
+      const st = filters.sub_type.toLowerCase();
+      const inTags = p.tags?.some((t) => t.name?.toLowerCase().includes(st)) ?? false;
+      const inDisp = (p.disposition ?? '').toLowerCase().includes(st);
+      const inDesc = (p.description ?? '').toLowerCase().includes(st);
+      const inTitle = (p.title ?? '').toLowerCase().includes(st);
+      if (!inTags && !inDisp && !inDesc && !inTitle) return false;
+    }
+    return true;
+  });
+
   // Propiedades visibles con mayor score primero
-  const visibleProps = filterByBbox(allProps, bbox).sort((a, b) => computeScore(b) - computeScore(a));
+  const visibleProps = filterByBbox(clientFilteredProps, bbox).sort((a, b) => computeScore(b) - computeScore(a));
 
   // Apply sort for display
   function sortProperties(props: Property[]): Property[] {
@@ -131,10 +148,48 @@ export default function HomePage() {
 
   const sortedVisibleProps = sortProperties(visibleProps);
   const hasMore = allProps.length < totalCount;
+  // hasMore se basa en allProps (paginación API), no en clientFilteredProps
 
   function handleMapSelect(id: number) {
     setSelectedId(id);
   }
+
+  // Persist mobileTab in sessionStorage so it survives back-navigation from detail pages
+  function setMobileTab(tab: 'map' | 'list') {
+    setMobileTabRaw(tab);
+    try { sessionStorage.setItem('netze-tab', tab); } catch {}
+  }
+
+  // Restore tab ONLY when coming back from a detail page (back/forward navigation)
+  useEffect(() => {
+    try {
+      const navType = (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming)?.type;
+      if (navType === 'back_forward') {
+        const saved = sessionStorage.getItem('netze-tab') as 'map' | 'list' | null;
+        if (saved) setMobileTabRaw(saved);
+      }
+      sessionStorage.removeItem('netze-tab');
+    } catch {}
+  }, []);
+
+  // Mobile tab switching with browser back button support
+  function switchToList() {
+    setMobileTab('list');
+    history.pushState({ tab: 'list' }, '');
+  }
+  function switchToMap() {
+    setMobileTab('map');
+  }
+
+  useEffect(() => {
+    const onBack = () => {
+      if (mobileTab === 'list') {
+        setMobileTab('map');
+      }
+    };
+    window.addEventListener('popstate', onBack);
+    return () => window.removeEventListener('popstate', onBack);
+  }, [mobileTab]);
 
 
   // ── Render ─────────────────────────────────────────────
@@ -159,7 +214,7 @@ export default function HomePage() {
             {/* Mapa */}
             <div className="flex-[6] relative">
               <MapView
-                properties={allProps}
+                properties={clientFilteredProps}
                 selectedId={selectedId}
                 isDark={isDark}
                 featuredIds={featuredIds}
@@ -288,7 +343,7 @@ export default function HomePage() {
           style={{ zIndex: mobileTab === 'map' ? 10 : 1, pointerEvents: mobileTab === 'map' ? 'auto' : 'none' }}
         >
           <MapView
-            properties={allProps}
+            properties={clientFilteredProps}
             selectedId={selectedId}
             isDark={isDark}
             featuredIds={featuredIds}
@@ -322,7 +377,7 @@ export default function HomePage() {
               </button>
               <span className="w-px bg-gray-700 my-2" />
               <button
-                onClick={() => setMobileTab('list')}
+                onClick={() => switchToList()}
                 className="flex items-center gap-1.5 px-5 py-2.5 text-[13px] font-semibold text-gray-400 hover:text-white transition"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -357,7 +412,7 @@ export default function HomePage() {
           {/* Botón volver al mapa */}
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20">
             <button
-              onClick={() => setMobileTab('map')}
+              onClick={() => { switchToMap(); history.back(); }}
               className="flex items-center gap-1.5 bg-gray-900 text-white text-[13px] font-semibold px-5 py-2.5 rounded-full shadow-xl"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

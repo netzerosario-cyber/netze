@@ -145,10 +145,13 @@ export const PROPERTY_TYPE_IDS = {
   Departamento: 2,
   Casa: 3,
   Lote: 1,
+  Cochera: 10,
   Oficina: 7,
   Local: 8,
   'Barrio Cerrado': 13,
   Emprendimiento: 4,
+  Campo: 5,
+  'Depósito': 9,
 } as const;
 
 /** IDs típicos de tipos de operación */
@@ -177,8 +180,12 @@ export interface PropertyFilters {
   price_from?: number;
   /** Precio máximo */
   price_to?: number;
-  /** Ambientes mínimos */
+  /** Ambientes exactos */
   rooms?: number;
+  /** Ambientes mínimos (para "3 o más") */
+  rooms_min?: number;
+  /** Sub-tipo textual: 'pasillo', 'loteo', 'edificio' */
+  sub_type?: string;
 }
 
 // ------------------------------------------------------------
@@ -323,7 +330,7 @@ export async function getProperties(
     surface_total:    p.total_surface ?? p.surface ?? null,
     surface_covered:  p.roofed_surface ?? null,
     photos:           p.photos ?? [],
-    property_type:    p.type ? { id: p.type, name: '' } : null,
+    property_type:    p.type ? { id: p.type.id ?? p.type, name: p.type.name ?? '' } : null,
     // Normalizar operations: /property/ usa operation_id en vez de id
     operations: (p.operations ?? []).map((op: { operation_id?: number; id?: number; operation_type?: string; name?: string; prices?: unknown[] }) => ({
       id:     op.operation_id ?? op.id ?? 0,

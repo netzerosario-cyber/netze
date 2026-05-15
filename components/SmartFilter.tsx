@@ -3,9 +3,8 @@
 // components/SmartFilter.tsx
 // Filtro en cascada:
 //   Paso 1: Comprar / Alquilar
-//   Paso 2: Categoría (Vivienda, Comercial, Terrenos…)
-//   Paso 3: Tipo específico (Casa, Dpto, Oficina…)
-//   Paso 4 (solo Comprar): Estado (Usado, A estrenar, Pozo…)
+//   Paso 2: Tipo directo (Departamentos, Casas, Cocheras…)
+//   Paso 3: Sub-filtro específico (solo donde aplica)
 // ============================================================
 import { useState, useEffect, useRef } from 'react';
 import { PropertyFilters, PROPERTY_TYPE_IDS, OPERATION_TYPE_IDS } from '@/lib/tokko';
@@ -16,125 +15,146 @@ interface SmartFilterProps {
   resultCount: number;
 }
 
-// ── Estructura del filtro en cascada ────────────────────────
-
+// ── Tipos de operación ──────────────────────────────────────
 type OperationId = 'comprar' | 'alquilar';
-type CategoryId = 'vivienda' | 'comercial' | 'terrenos' | 'emprendimiento';
 
-interface Category {
-  id: CategoryId;
+// ── Sub-filtros por tipo ────────────────────────────────────
+
+interface SubFilter {
   label: string;
-  emoji: string;
-  types: Array<{ label: string; id: number }>;
+  /** Filtro parcial que se mergea al aplicar */
+  filter: Partial<PropertyFilters>;
 }
 
-const CATEGORIES: Record<OperationId, Category[]> = {
-  comprar: [
-    {
-      id: 'vivienda',
-      label: 'Vivienda',
-      emoji: '🏠',
-      types: [
-        { label: 'Departamento',   id: PROPERTY_TYPE_IDS.Departamento },
-        { label: 'Casa',           id: PROPERTY_TYPE_IDS.Casa },
-        { label: 'Barrio Cerrado', id: PROPERTY_TYPE_IDS['Barrio Cerrado'] },
-      ],
-    },
-    {
-      id: 'comercial',
-      label: 'Comercial',
-      emoji: '🏢',
-      types: [
-        { label: 'Oficina', id: PROPERTY_TYPE_IDS.Oficina },
-        { label: 'Local',   id: PROPERTY_TYPE_IDS.Local },
-      ],
-    },
-    {
-      id: 'terrenos',
-      label: 'Terrenos',
-      emoji: '📐',
-      types: [
-        { label: 'Lote', id: PROPERTY_TYPE_IDS.Lote },
-      ],
-    },
-    {
-      id: 'emprendimiento',
-      label: 'Emprendimiento',
-      emoji: '🏗',
-      types: [
-        { label: 'Emprendimiento', id: PROPERTY_TYPE_IDS.Emprendimiento },
-      ],
-    },
-  ],
-  alquilar: [
-    {
-      id: 'vivienda',
-      label: 'Vivienda',
-      emoji: '🏠',
-      types: [
-        { label: 'Departamento', id: PROPERTY_TYPE_IDS.Departamento },
-        { label: 'Casa',         id: PROPERTY_TYPE_IDS.Casa },
-      ],
-    },
-    {
-      id: 'comercial',
-      label: 'Comercial',
-      emoji: '🏢',
-      types: [
-        { label: 'Oficina', id: PROPERTY_TYPE_IDS.Oficina },
-        { label: 'Local',   id: PROPERTY_TYPE_IDS.Local },
-      ],
-    },
-  ],
-};
+interface PropertyTypeOption {
+  id: string;
+  label: string;
+  emoji: string;
+  /** IDs de tipo de propiedad Tokko */
+  typeIds: number[];
+  /** Sub-filtros opcionales — si no hay, aplica directo */
+  subFilters?: SubFilter[];
+}
+
+const PROPERTY_TYPES: PropertyTypeOption[] = [
+  {
+    id: 'departamentos',
+    label: 'Departamentos',
+    emoji: '🏢',
+    typeIds: [PROPERTY_TYPE_IDS.Departamento],
+    subFilters: [
+      { label: 'Monoambiente',  filter: { rooms: 1 } },
+      { label: '1 Dormitorio',  filter: { rooms: 2 } },
+      { label: '2 Dormitorios', filter: { rooms: 3 } },
+      { label: '3 Dorm. o más', filter: { rooms_min: 4 } },
+    ],
+  },
+  {
+    id: 'casas',
+    label: 'Casas',
+    emoji: '🏠',
+    typeIds: [PROPERTY_TYPE_IDS.Casa],
+    subFilters: [
+      { label: 'Todas',   filter: {} },
+      { label: 'Pasillo', filter: { sub_type: 'pasillo' } },
+    ],
+  },
+  {
+    id: 'cocheras',
+    label: 'Cocheras',
+    emoji: '🚗',
+    typeIds: [PROPERTY_TYPE_IDS.Cochera],
+  },
+  {
+    id: 'terrenos',
+    label: 'Terrenos',
+    emoji: '📐',
+    typeIds: [PROPERTY_TYPE_IDS.Lote, PROPERTY_TYPE_IDS['Barrio Cerrado']],
+    subFilters: [
+      { label: 'Barrio Abierto',  filter: { property_types: [PROPERTY_TYPE_IDS.Lote] } },
+      { label: 'Barrio Cerrado',  filter: { property_types: [PROPERTY_TYPE_IDS['Barrio Cerrado']] } },
+    ],
+  },
+  {
+    id: 'emprendimientos',
+    label: 'Emprendimientos',
+    emoji: '🏗',
+    typeIds: [PROPERTY_TYPE_IDS.Emprendimiento],
+    subFilters: [
+      { label: 'Loteos',    filter: { sub_type: 'loteo' } },
+      { label: 'Edificios', filter: { sub_type: 'edificio' } },
+    ],
+  },
+  {
+    id: 'locales',
+    label: 'Locales',
+    emoji: '🏪',
+    typeIds: [PROPERTY_TYPE_IDS.Local],
+  },
+  {
+    id: 'campos',
+    label: 'Campos',
+    emoji: '🌾',
+    typeIds: [PROPERTY_TYPE_IDS.Campo],
+  },
+  {
+    id: 'depositos',
+    label: 'Depósitos / Naves',
+    emoji: '🏭',
+    typeIds: [PROPERTY_TYPE_IDS['Depósito']],
+  },
+  {
+    id: 'oficinas',
+    label: 'Oficinas',
+    emoji: '💼',
+    typeIds: [PROPERTY_TYPE_IDS.Oficina],
+  },
+];
 
 // ── Pill label ───────────────────────────────────────────────
 function getActiveLabel(filters: PropertyFilters): string {
   const isAlq = filters.operation_types?.includes(OPERATION_TYPE_IDS.Alquiler);
   const isVen = filters.operation_types?.includes(OPERATION_TYPE_IDS.Venta);
-  const typeName = Object.entries(PROPERTY_TYPE_IDS).find(([, id]) =>
-    filters.property_types?.includes(id)
-  )?.[0];
-  if (isAlq) return typeName ? `Alquilar · ${typeName}` : 'Alquilar';
-  if (isVen) return typeName ? `Comprar · ${typeName}` : 'Comprar';
+
+  // Buscar qué tipo coincide
+  const activeType = PROPERTY_TYPES.find((pt) =>
+    filters.property_types?.length &&
+    pt.typeIds.some((id) => filters.property_types!.includes(id))
+  );
+
+  // Buscar sub-filtro activo
+  let subLabel = '';
+  if (activeType?.subFilters) {
+    if (filters.rooms) {
+      const roomsSub = activeType.subFilters.find((sf) => sf.filter.rooms === filters.rooms);
+      if (roomsSub) subLabel = ` · ${roomsSub.label}`;
+    } else if (filters.rooms_min) {
+      const roomsMinSub = activeType.subFilters.find((sf) => sf.filter.rooms_min === filters.rooms_min);
+      if (roomsMinSub) subLabel = ` · ${roomsMinSub.label}`;
+    } else if (filters.sub_type) {
+      const stSub = activeType.subFilters.find((sf) => sf.filter.sub_type === filters.sub_type);
+      if (stSub) subLabel = ` · ${stSub.label}`;
+    } else if (filters.property_types?.length === 1) {
+      // Para terrenos: si seleccionó un sub-tipo específico
+      const ptSub = activeType.subFilters.find(
+        (sf) => sf.filter.property_types?.length === 1 && sf.filter.property_types[0] === filters.property_types![0]
+      );
+      if (ptSub) subLabel = ` · ${ptSub.label}`;
+    }
+  }
+
+  const typeName = activeType?.label ?? '';
+  if (isAlq) return typeName ? `Alquilar · ${typeName}${subLabel}` : 'Alquilar';
+  if (isVen) return typeName ? `Comprar · ${typeName}${subLabel}` : 'Comprar';
   return 'Explorá propiedades';
-}
-
-// ── Chip button reutilizable ─────────────────────────────────
-function Chip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className={[
-        'px-3.5 py-2 rounded-xl text-sm font-medium transition-all active:scale-[0.97] border whitespace-nowrap',
-        active
-          ? 'bg-[#0041CE] text-white border-[#0041CE]'
-          : 'bg-gray-50 dark:bg-[#21262d] text-gray-700 dark:text-gray-300 border-gray-100 dark:border-[#30363d] hover:border-[#0041CE] dark:hover:border-[#0061FB]',
-      ].join(' ')}
-    >
-      {label}
-    </button>
-  );
-}
-
-// ── Sección con título ───────────────────────────────────────
-function FilterSection({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-2">
-      <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-0.5">
-        {title}
-      </p>
-      <div className="flex flex-wrap gap-2">{children}</div>
-    </div>
-  );
 }
 
 // ── Componente principal ─────────────────────────────────────
 export default function SmartFilter({ filters, onFilterChange, resultCount }: SmartFilterProps) {
-  const [isOpen,    setIsOpen]    = useState(false);
-  const [operation, setOperation] = useState<OperationId | null>(null);
-  const [category,  setCategory]  = useState<CategoryId | null>(null);
-  const [typeId,    setTypeId]    = useState<number | null>(null);
+  const [isOpen,      setIsOpen]      = useState(false);
+  const [operation,   setOperation]   = useState<OperationId | null>(null);
+  const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [subFilterIdx, setSubFilterIdx] = useState<number | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const activeLabel = getActiveLabel(filters);
@@ -143,7 +163,7 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
   // Sincronizar estado local con filtros externos (al limpiar)
   useEffect(() => {
     if (!filters.operation_types?.length && !filters.property_types?.length) {
-      setOperation(null); setCategory(null); setTypeId(null);
+      setOperation(null); setSelectedType(null); setSubFilterIdx(null);
     }
   }, [filters]);
 
@@ -156,81 +176,119 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
     return () => document.removeEventListener('mousedown', handler);
   }, [isOpen]);
 
+  // ── helpers ──────────────────────────────────────────────────
+  function getOperationFilter(op: OperationId): number[] {
+    return [op === 'comprar' ? OPERATION_TYPE_IDS.Venta : OPERATION_TYPE_IDS.Alquiler];
+  }
+
+  function buildFilters(op: OperationId, typeOpt: PropertyTypeOption | null, subFilter?: Partial<PropertyFilters>): PropertyFilters {
+    const f: PropertyFilters = { operation_types: getOperationFilter(op) };
+    if (typeOpt) {
+      // Si el sub-filtro tiene property_types propio (ej: Terrenos → Barrio Cerrado),
+      // usamos ese en vez del default del tipo
+      if (subFilter?.property_types) {
+        f.property_types = subFilter.property_types;
+      } else {
+        f.property_types = typeOpt.typeIds;
+      }
+      // Mergear el resto del sub-filtro
+      if (subFilter) {
+        if (subFilter.rooms) f.rooms = subFilter.rooms;
+        if (subFilter.rooms_min) f.rooms_min = subFilter.rooms_min;
+        if (subFilter.sub_type) f.sub_type = subFilter.sub_type;
+      }
+    }
+    return f;
+  }
+
   // ── Selección de operación ────────────────────────────────
   function selectOperation(op: OperationId) {
     setOperation(op);
-    setCategory(null);
-    setTypeId(null);
-    // Aplicar filtro base inmediatamente
-    onFilterChange({
-      operation_types: [op === 'comprar' ? OPERATION_TYPE_IDS.Venta : OPERATION_TYPE_IDS.Alquiler],
-    });
+    setSelectedType(null);
+    setSubFilterIdx(null);
+    onFilterChange({ operation_types: getOperationFilter(op) });
   }
 
-  // ── Selección de categoría ────────────────────────────────
-  function selectCategory(cat: CategoryId) {
-    setCategory(cat);
-    setTypeId(null);
-    if (!operation) return;
-    // Si la categoría solo tiene un tipo, lo aplicamos directamente
-    const cats = CATEGORIES[operation];
-    const found = cats.find((c) => c.id === cat);
-    if (found && found.types.length === 1) {
-      applyFilters(operation, found.types[0].id);
-      setTypeId(found.types[0].id);
+  // ── Selección de tipo ─────────────────────────────────────
+  function selectType(typeId: string) {
+    const typeOpt = PROPERTY_TYPES.find((t) => t.id === typeId);
+    if (!typeOpt || !operation) return;
+
+    setSelectedType(typeId);
+    setSubFilterIdx(null);
+
+    if (!typeOpt.subFilters || typeOpt.subFilters.length === 0) {
+      // Sin sub-filtros → aplicar directo
+      onFilterChange(buildFilters(operation, typeOpt));
     } else {
-      onFilterChange({
-        operation_types: [operation === 'comprar' ? OPERATION_TYPE_IDS.Venta : OPERATION_TYPE_IDS.Alquiler],
-      });
+      // Con sub-filtros → aplicar el tipo base y esperar selección
+      onFilterChange(buildFilters(operation, typeOpt));
     }
   }
 
-  // ── Selección de tipo específico ──────────────────────────
-  function selectType(id: number) {
-    setTypeId(id);
-    applyFilters(operation!, id);
-  }
+  // ── Selección de sub-filtro ───────────────────────────────
+  function selectSubFilter(idx: number) {
+    const typeOpt = PROPERTY_TYPES.find((t) => t.id === selectedType);
+    if (!typeOpt?.subFilters || !operation) return;
 
-  function applyFilters(op: OperationId | null, tid: number | null) {
-    if (!op) return;
-    const f: PropertyFilters = {
-      operation_types: [op === 'comprar' ? OPERATION_TYPE_IDS.Venta : OPERATION_TYPE_IDS.Alquiler],
-    };
-    if (tid) f.property_types = [tid];
-    onFilterChange(f);
+    setSubFilterIdx(idx);
+    const sf = typeOpt.subFilters[idx];
+    onFilterChange(buildFilters(operation, typeOpt, sf.filter));
   }
 
   function clearAll() {
-    setOperation(null); setCategory(null); setTypeId(null);
+    setOperation(null); setSelectedType(null); setSubFilterIdx(null);
     onFilterChange({});
     setIsOpen(false);
   }
 
-  // ── Categoría activa ──────────────────────────────────────
-  const activeCats = operation ? CATEGORIES[operation] : [];
-  const activeCat  = activeCats.find((c) => c.id === category);
+  // ── Info del tipo activo ──────────────────────────────────
+  const activeTypeOpt = PROPERTY_TYPES.find((t) => t.id === selectedType);
+  const hasSubFilters = activeTypeOpt?.subFilters && activeTypeOpt.subFilters.length > 0;
 
-  // Paso actual para el header del panel
+  // Paso actual para el header
   const stepLabel = !operation
     ? '¿Qué querés hacer?'
-    : !category
+    : !selectedType
     ? '¿Qué tipo de propiedad?'
-    : activeCat && activeCat.types.length > 1 && !typeId
-    ? `${activeCat.emoji} ${activeCat.label}`
+    : hasSubFilters && subFilterIdx === null
+    ? `${activeTypeOpt!.emoji} ${activeTypeOpt!.label}`
     : 'Filtro aplicado';
+
+  // ── Función de retroceso ──────────────────────────────────
+  function goBack() {
+    if (subFilterIdx !== null) {
+      // Volver de sub-filtro a tipo (re-aplicar filtro base del tipo)
+      setSubFilterIdx(null);
+      if (operation && activeTypeOpt) {
+        onFilterChange(buildFilters(operation, activeTypeOpt));
+      }
+    } else if (selectedType) {
+      // Volver de tipo a operación
+      setSelectedType(null);
+      setSubFilterIdx(null);
+      if (operation) {
+        onFilterChange({ operation_types: getOperationFilter(operation) });
+      }
+    } else if (operation) {
+      // Volver de operación a inicio
+      setOperation(null);
+      onFilterChange({});
+    }
+  }
 
   // ── Render ────────────────────────────────────────────────
   return (
     <>
       <div
         ref={panelRef}
-        className="fixed top-[66px] left-1/2 -translate-x-1/2 z-[200] w-full max-w-sm px-4 flex flex-col items-center gap-2"
+        className="fixed top-[66px] left-1/2 -translate-x-1/2 z-[200] w-full max-w-sm px-4 flex flex-col items-center gap-2 pointer-events-none"
       >
         {/* Pill */}
         <button
           onClick={() => setIsOpen((o) => !o)}
           className={[
-            'flex items-center gap-2.5 pl-4 pr-3 py-2.5 rounded-full shadow-lg',
+            'flex items-center gap-2.5 pl-4 pr-3 py-2.5 rounded-full shadow-lg pointer-events-auto',
             'text-sm font-semibold transition-all duration-200 active:scale-[0.97] select-none ring-1',
             hasFilters
               ? 'bg-[#0041CE] text-white ring-[#0041CE] shadow-[#0041CE]/20'
@@ -240,7 +298,7 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
           <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
           </svg>
-          <span className="truncate max-w-[190px]">{activeLabel}</span>
+          <span className="truncate max-w-[220px]">{activeLabel}</span>
           {hasFilters && (
             <span className="text-[11px] font-bold bg-white/20 px-1.5 py-0.5 rounded-full shrink-0">
               {resultCount}
@@ -261,7 +319,7 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
             'border border-gray-100 dark:border-[#30363d] overflow-hidden',
             'transition-all duration-300 ease-out origin-top',
             isOpen
-              ? 'opacity-100 scale-y-100 translate-y-0'
+              ? 'opacity-100 scale-y-100 translate-y-0 pointer-events-auto'
               : 'opacity-0 scale-y-95 -translate-y-2 pointer-events-none',
           ].join(' ')}
         >
@@ -272,16 +330,7 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
             </p>
             {operation && (
               <button
-                onClick={() => {
-                  // Si la categoría tiene 1 solo tipo, typeId se setea auto.
-                  // "Volver" debe saltar directo a categorías en ese caso.
-                  const cat = operation ? CATEGORIES[operation]?.find(c => c.id === category) : null;
-                  const singleType = cat && cat.types.length === 1;
-
-                  if (typeId && !singleType) { setTypeId(null); applyFilters(operation, null); }
-                  else if (category)          { setCategory(null); setTypeId(null); applyFilters(operation, null); }
-                  else                        { setOperation(null); onFilterChange({}); }
-                }}
+                onClick={goBack}
                 className="text-[12px] text-gray-400 dark:text-gray-500 hover:text-gray-800 dark:hover:text-gray-100 transition flex items-center gap-1"
               >
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -315,56 +364,72 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
               </div>
             )}
 
-            {/* ── Paso 2: Categorías ─────────────────────── */}
-            {operation && !category && (
-              <FilterSection title="Categoría">
-                {activeCats.map((cat) => (
+            {/* ── Paso 2: Tipos de propiedad ──────────────── */}
+            {operation && !selectedType && (
+              <div className="grid grid-cols-3 gap-2">
+                {PROPERTY_TYPES.map((pt) => (
                   <button
-                    key={cat.id}
-                    onClick={() => selectCategory(cat.id)}
-                    className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium border border-gray-100 dark:border-[#30363d] bg-gray-50 dark:bg-[#21262d] text-gray-700 dark:text-gray-300 hover:border-[#0041CE] dark:hover:border-[#0061FB] hover:bg-blue-50/60 dark:hover:bg-blue-900/10 transition-all active:scale-[0.97]"
+                    key={pt.id}
+                    onClick={() => selectType(pt.id)}
+                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-gray-100 dark:border-[#30363d] bg-gray-50/50 dark:bg-[#21262d]/50 text-center hover:border-[#0041CE] dark:hover:border-[#0061FB] hover:bg-blue-50/60 dark:hover:bg-blue-900/10 transition-all active:scale-[0.97]"
                   >
-                    <span>{cat.emoji}</span>
-                    {cat.label}
+                    <span className="text-xl">{pt.emoji}</span>
+                    <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300 leading-tight">{pt.label}</span>
                   </button>
                 ))}
-              </FilterSection>
+              </div>
             )}
 
-            {/* ── Paso 3: Tipo específico ────────────────── */}
-            {operation && category && activeCat && activeCat.types.length > 1 && !typeId && (
-              <FilterSection title="Tipo">
-                {activeCat.types.map((t) => (
-                  <Chip key={t.id} label={t.label} active={typeId === t.id} onClick={() => selectType(t.id)} />
-                ))}
-              </FilterSection>
+            {/* ── Paso 3: Sub-filtros ────────────────────── */}
+            {operation && selectedType && hasSubFilters && (
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-0.5">
+                  Filtrar por
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {activeTypeOpt!.subFilters!.map((sf, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => selectSubFilter(idx)}
+                      className={[
+                        'px-3.5 py-2 rounded-xl text-sm font-medium transition-all active:scale-[0.97] border whitespace-nowrap',
+                        subFilterIdx === idx
+                          ? 'bg-[#0041CE] text-white border-[#0041CE]'
+                          : 'bg-gray-50 dark:bg-[#21262d] text-gray-700 dark:text-gray-300 border-gray-100 dark:border-[#30363d] hover:border-[#0041CE] dark:hover:border-[#0061FB]',
+                      ].join(' ')}
+                    >
+                      {sf.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
 
-            {/* Indicador de breadcrumb cuando hay filtros activos */}
+            {/* Breadcrumb */}
             {operation && (
               <div className="flex items-center gap-1.5 text-[11px] text-gray-400 dark:text-gray-500 flex-wrap">
                 <span
                   className="cursor-pointer hover:text-[#0041CE] transition font-medium"
-                  onClick={() => { setOperation(null); setCategory(null); setTypeId(null); onFilterChange({}); }}
+                  onClick={() => { setOperation(null); setSelectedType(null); setSubFilterIdx(null); onFilterChange({}); }}
                 >
                   {operation === 'comprar' ? 'Comprar' : 'Alquilar'}
                 </span>
-                {category && (
+                {selectedType && activeTypeOpt && (
                   <>
                     <span>›</span>
                     <span
                       className="cursor-pointer hover:text-[#0041CE] transition font-medium"
-                      onClick={() => { setCategory(null); setTypeId(null); applyFilters(operation, null); }}
+                      onClick={() => { setSelectedType(null); setSubFilterIdx(null); if (operation) onFilterChange({ operation_types: getOperationFilter(operation) }); }}
                     >
-                      {activeCat?.label}
+                      {activeTypeOpt.label}
                     </span>
                   </>
                 )}
-                {typeId && activeCat && (
+                {subFilterIdx !== null && activeTypeOpt?.subFilters && (
                   <>
                     <span>›</span>
                     <span className="font-medium text-gray-600 dark:text-gray-300">
-                      {activeCat.types.find((t) => t.id === typeId)?.label}
+                      {activeTypeOpt.subFilters[subFilterIdx].label}
                     </span>
                   </>
                 )}
