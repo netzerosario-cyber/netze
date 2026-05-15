@@ -292,18 +292,20 @@ export async function getProperties(
   if (filters.operation_types && filters.operation_types.length > 0) {
     params.set('operation_id', String(filters.operation_types[0]));
   }
-  // Filtros por tipo de propiedad: type (Tokko acepta múltiples params)
-  if (filters.property_types && filters.property_types.length > 0) {
-    // Tokko /property/ endpoint: para múltiples tipos, enviar cada uno
-    // como parámetro separado: type=1&type=13
-    filters.property_types.forEach(t => params.append('type', String(t)));
+  // Filtros por tipo de propiedad: type
+  // IMPORTANTE: Tokko /property/ solo acepta UN valor de type.
+  // Si hay múltiples (ej: Terrenos = Lote+Barrio Cerrado), NO enviar
+  // el param y filtrar client-side en page.tsx
+  if (filters.property_types && filters.property_types.length === 1) {
+    params.set('type', String(filters.property_types[0]));
   }
   if (filters.development_status) {
     params.set('development_status', filters.development_status);
   }
   if (typeof filters.price_from === 'number') params.set('price_from', String(filters.price_from));
   if (typeof filters.price_to   === 'number') params.set('price_to',   String(filters.price_to));
-  if (typeof filters.rooms      === 'number') params.set('room_amount', String(filters.rooms));
+  // NO enviar room_amount a la API — Tokko puede no soportarlo bien.
+  // El filtro de rooms/rooms_min se aplica client-side en page.tsx
 
   const url = `${TOKKO_BASE_URL}/property/?${params.toString()}`;
   console.info('[Netze] Tokko URL:', url);

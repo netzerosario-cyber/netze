@@ -114,21 +114,32 @@ export default function HomePage() {
     return s;
   }
 
-  // ── Filtrado client-side (rooms, rooms_min, sub_type) ─────
-  // Tokko no soporta estos filtros, así que los aplicamos aquí
+  // ── Filtrado client-side ────────────────────────────────────
+  // La API de Tokko filtra por operation_type y un solo type.
+  // Todo lo demás (múltiples types, rooms, sub_type) se filtra aquí.
   const clientFilteredProps = allProps.filter((p) => {
+    // property_types: cuando hay múltiples types (ej: Terrenos = Lote + Barrio Cerrado)
+    // o cuando el API no filtró por type
+    if (filters.property_types && filters.property_types.length > 0) {
+      if (!p.property_type || !filters.property_types.includes(p.property_type.id)) {
+        return false;
+      }
+    }
     // rooms: filtrar por cantidad exacta de ambientes
-    if (filters.rooms && (p.rooms == null || p.rooms !== filters.rooms)) return false;
+    // Si la propiedad no tiene room_amount cargado, la INCLUIMOS
+    // (no podemos asumir que no coincide — dato faltante en Tokko)
+    if (filters.rooms && p.rooms != null && p.rooms !== filters.rooms) return false;
     // rooms_min: filtrar por cantidad mínima de ambientes
-    if (filters.rooms_min && (p.rooms == null || p.rooms < filters.rooms_min)) return false;
-    // sub_type: buscar en tags, disposition y description
+    if (filters.rooms_min && p.rooms != null && p.rooms < filters.rooms_min) return false;
+    // sub_type: buscar en tags, disposition, description, title y tipo de propiedad
     if (filters.sub_type) {
       const st = filters.sub_type.toLowerCase();
       const inTags = p.tags?.some((t) => t.name?.toLowerCase().includes(st)) ?? false;
       const inDisp = (p.disposition ?? '').toLowerCase().includes(st);
       const inDesc = (p.description ?? '').toLowerCase().includes(st);
       const inTitle = (p.title ?? '').toLowerCase().includes(st);
-      if (!inTags && !inDisp && !inDesc && !inTitle) return false;
+      const inType = (p.property_type?.name ?? '').toLowerCase().includes(st);
+      if (!inTags && !inDisp && !inDesc && !inTitle && !inType) return false;
     }
     return true;
   });
