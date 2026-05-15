@@ -18,6 +18,7 @@ interface Props {
   featuredIds?: number[];
   onBoundsChange: (b: BoundingBox) => void;
   onPropertySelect: (id: number) => void;
+  onPropertyDeselect?: () => void;
   flyToLocation?: [number, number] | null;
   filterKey?: string;
 }
@@ -194,7 +195,7 @@ function BottomCard({ prop, onClose }: { prop: Property; onClose: () => void }) 
   );
 }
 
-export default function MapView({ properties, selectedId, isDark = false, onBoundsChange, onPropertySelect, flyToLocation, filterKey }: Props) {
+export default function MapView({ properties, selectedId, isDark = false, onBoundsChange, onPropertySelect, onPropertyDeselect, flyToLocation, filterKey }: Props) {
   const cRef = useRef<HTMLDivElement>(null);
   const mRef = useRef<mapboxgl.Map | null>(null);
   const propsRef = useRef(properties);
@@ -236,12 +237,14 @@ export default function MapView({ properties, selectedId, isDark = false, onBoun
     cardClosedRef.current = true;
     mapCardPushed.current = false;
     setActiveProperty(null);
+    // Limpiar selectedId en el parent para evitar que el effect re-abra la card
+    onPropertyDeselect?.();
     const map = mRef.current;
     if (map && savedView.current) {
       map.easeTo({ center: savedView.current.center, zoom: savedView.current.zoom, duration: 400 });
       savedView.current = null;
     }
-  }, []);
+  }, [onPropertyDeselect]);
 
   // Botón atrás cierra la card
   useEffect(() => {
@@ -390,21 +393,30 @@ export default function MapView({ properties, selectedId, isDark = false, onBoun
     }
   }, [properties, registerIcons]);
 
+  // selectedId effect — solo zoom + mostrar card, NO pushear historial
+  // (el historial lo maneja handlePillClick; este effect es para selección desde la lista)
+  const prevSelId = useRef<number | null>(null);
   useEffect(() => {
-    if (!selectedId) return;
+    if (!selectedId || selectedId === prevSelId.current) return;
+    prevSelId.current = selectedId;
     const map = mRef.current; if (!map) return;
     const p = properties.find(x => x.id === selectedId);
     if (!p?.geo_lat || !p?.geo_long) return;
     const lat = parseFloat(p.geo_lat), lng = parseFloat(p.geo_long);
     if (isNaN(lat) || isNaN(lng)) return;
-    // Guardar vista actual
-    savedView.current = { center: map.getCenter().toArray() as [number, number], zoom: map.getZoom() };
+    // Solo guardar vista si no hay una card ya abierta (evitar sobreescribir)
+    if (!activeProperty) {
+      savedView.current = { center: map.getCenter().toArray() as [number, number], zoom: map.getZoom() };
+    }
     cardClosedRef.current = false;
-    mapCardPushed.current = true;
+    // Solo pushear history si no fue ya pusheado por handlePillClick
+    if (!mapCardPushed.current) {
+      mapCardPushed.current = true;
+      history.pushState({ type: 'mc' }, '');
+    }
     map.easeTo({ center: [lng, lat], zoom: Math.max(map.getZoom(), 15), duration: 400 });
     setActiveProperty(p);
-    history.pushState({ type: 'mc' }, '');
-  }, [selectedId, properties]);
+  }, [selectedId, properties, activeProperty]);
 
   useEffect(() => { if (!flyToLocation) return; mRef.current?.flyTo({ center: flyToLocation, zoom: 14, duration: 1000 }); }, [flyToLocation]);
 

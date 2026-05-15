@@ -156,6 +156,10 @@ export default function HomePage() {
     setSelectedId(id);
   }
 
+  function handleMapDeselect() {
+    setSelectedId(null);
+  }
+
   // Persist mobileTab in sessionStorage so it survives back-navigation from detail pages
   function setMobileTab(tab: 'map' | 'list') {
     setMobileTabRaw(tab);
@@ -222,6 +226,7 @@ export default function HomePage() {
                 featuredIds={featuredIds}
                 onBoundsChange={setBbox}
                 onPropertySelect={handleMapSelect}
+                onPropertyDeselect={handleMapDeselect}
                 flyToLocation={flyToLoc}
                 filterKey={JSON.stringify(filters)}
               />
@@ -351,6 +356,7 @@ export default function HomePage() {
             featuredIds={featuredIds}
             onBoundsChange={setBbox}
             onPropertySelect={handleMapSelect}
+            onPropertyDeselect={handleMapDeselect}
             flyToLocation={flyToLoc}
             filterKey={JSON.stringify(filters)}
           />
