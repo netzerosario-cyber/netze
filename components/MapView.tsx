@@ -410,7 +410,8 @@ export default function MapView({ properties, selectedId, isDark = false, onBoun
     let hasFilter = false;
     try { const p = JSON.parse(filterKey); hasFilter = !!(p.property_types?.length || p.operation_types?.length || p.rooms || p.rooms_min || p.sub_type); } catch { return; }
     const wc = properties.filter(p => p.geo_lat && p.geo_long);
-    if (!hasFilter || !wc.length) { map.flyTo({ center: CENTER, zoom: ZOOM, duration: 800 }); return; }
+    if (!wc.length) { map.flyTo({ center: CENTER, zoom: ZOOM, duration: 800 }); return; }
+    // Siempre ajustar al radio de las propiedades disponibles (con o sin filtro)
     const bounds = new mapboxgl.LngLatBounds();
     wc.forEach(p => { const la = parseFloat(p.geo_lat!), ln = parseFloat(p.geo_long!); if (!isNaN(la) && !isNaN(ln)) bounds.extend([ln, la]); });
     if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: { top: 120, bottom: 80, left: 40, right: 40 }, maxZoom: 15, duration: 800 });
