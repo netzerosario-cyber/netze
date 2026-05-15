@@ -222,7 +222,7 @@ export default function HomePage() {
       <SmartFilter
         filters={filters}
         onFilterChange={setFilters}
-        resultCount={visibleProps.length}
+        resultCount={clientFilteredProps.length}
       />
 
       {/* ─────────────── DESKTOP: split 60/40 or full list ─────── */}
