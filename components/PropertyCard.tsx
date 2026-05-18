@@ -39,7 +39,10 @@ export default function PropertyCard({ property, isSelected = false, isFeatured 
 
   function handleCardClick() {
     onClick?.(property.id); // seleccionar en el mapa (si hay handler)
-    router.push(`/propiedad/${property.id}`);
+    const path = property._isDevelopment
+      ? `/emprendimiento/${property.id}`
+      : `/propiedad/${property.id}`;
+    router.push(path);
   }
 
   async function handleShare(e: React.MouseEvent) {
