@@ -1,89 +1,103 @@
 'use client';
 // ============================================================
 // components/SearchBar.tsx
-// Buscador dual:
-//   1) Filtra propiedades por texto en tiempo real (onSearchText)
-//   2) Mapbox Geocoding para volar el mapa a una ubicación (onSelect)
-// Debounce 350ms · Solo Argentina · max 5 resultados
+// Buscador local — sugerencias basadas en propiedades cargadas
+// Sin Mapbox geocoding, sin sugerencias externas.
 // ============================================================
-import { useState, useRef, useEffect, useCallback } from 'react';
-
-interface Suggestion {
-  id: string;
-  place_name: string;
-  center: [number, number]; // [lng, lat]
-  text: string;
-}
+import { useState, useRef, useEffect, useMemo } from 'react';
+import { Property } from '@/lib/tokko';
 
 interface SearchBarProps {
   onSelect: (center: [number, number], placeName: string) => void;
   onSearchText?: (text: string) => void;
+  properties?: Property[];
   className?: string;
 }
 
-export default function SearchBar({ onSelect, onSearchText, className = '' }: SearchBarProps) {
+interface Suggestion {
+  label: string;
+  sublabel: string;
+  searchText: string;
+  center?: [number, number];
+}
+
+export default function SearchBar({ onSelect, onSearchText, properties = [], className = '' }: SearchBarProps) {
   const [query, setQuery] = useState('');
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [isOpen, setIsOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const fetchSuggestions = useCallback(async (q: string) => {
-    if (q.trim().length < 2) { setSuggestions([]); setIsOpen(false); return; }
-    setIsLoading(true);
-    try {
-      const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
-      const encoded = encodeURIComponent(q);
-      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?country=AR&language=es&limit=5&access_token=${token}`;
-      const res = await fetch(url);
-      const data = await res.json();
-      const results: Suggestion[] = (data.features ?? []).map((f: {
-        id: string; place_name: string; center: [number, number]; text: string;
-      }) => ({
-        id: f.id,
-        place_name: f.place_name,
-        center: f.center,
-        text: f.text,
-      }));
-      setSuggestions(results);
-      setIsOpen(results.length > 0);
-    } catch {
-      setSuggestions([]);
-    } finally {
-      setIsLoading(false);
+  // ── Generar sugerencias únicas desde las propiedades cargadas ──
+  const suggestions: Suggestion[] = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (q.length < 2) return [];
+
+    const seen = new Set<string>();
+    const results: Suggestion[] = [];
+
+    // 1. Barrios / localidades únicas
+    for (const p of properties) {
+      const loc = p.location?.name;
+      if (loc && loc.toLowerCase().includes(q) && !seen.has(loc.toLowerCase())) {
+        seen.add(loc.toLowerCase());
+        const lat = p.geo_lat ? parseFloat(p.geo_lat) : null;
+        const lng = p.geo_long ? parseFloat(p.geo_long) : null;
+        results.push({
+          label: loc,
+          sublabel: 'Zona / Localidad',
+          searchText: loc,
+          center: lat && lng ? [lng, lat] : undefined,
+        });
+      }
     }
-  }, []);
+
+    // 2. Propiedades específicas (dirección + precio)
+    for (const p of properties) {
+      const addr = (p.real_address ?? p.address ?? '').trim();
+      const title = (p.title ?? p.publication_title ?? '').trim();
+      const matchAddr  = addr.toLowerCase().includes(q);
+      const matchTitle = title.toLowerCase().includes(q);
+      const matchDesc  = (p.description ?? '').toLowerCase().includes(q);
+      const matchTags  = p.tags?.some(t => t.name?.toLowerCase().includes(q)) ?? false;
+
+      if ((matchAddr || matchTitle || matchDesc || matchTags) && !seen.has(String(p.id))) {
+        seen.add(String(p.id));
+        const lat = p.geo_lat ? parseFloat(p.geo_lat) : null;
+        const lng = p.geo_long ? parseFloat(p.geo_long) : null;
+        results.push({
+          label: addr || title,
+          sublabel: p.property_type?.name ?? 'Propiedad',
+          searchText: addr || title,
+          center: lat && lng ? [lng, lat] : undefined,
+        });
+      }
+    }
+
+    return results.slice(0, 7); // máximo 7 sugerencias
+  }, [query, properties]);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const val = e.target.value;
     setQuery(val);
-    // Filtrar propiedades en tiempo real (sin debounce)
     onSearchText?.(val);
-    // Geocoding con debounce
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => fetchSuggestions(val), 350);
+    setIsOpen(val.trim().length >= 2);
   }
 
   function handleSelect(s: Suggestion) {
-    setQuery(s.text);
-    setSuggestions([]);
+    setQuery(s.searchText);
     setIsOpen(false);
-    // Al elegir una ubicación geográfica, volar el mapa y limpiar el filtro de texto
-    onSearchText?.('');
-    onSelect(s.center, s.place_name);
+    onSearchText?.(s.searchText);
+    if (s.center) onSelect(s.center, s.searchText);
   }
 
   function handleClear() {
     setQuery('');
-    setSuggestions([]);
     setIsOpen(false);
     onSearchText?.('');
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Escape') { setIsOpen(false); setSuggestions([]); }
+    if (e.key === 'Escape') { setIsOpen(false); }
   }
 
   // Cerrar al hacer click fuera
@@ -105,21 +119,15 @@ export default function SearchBar({ onSelect, onSearchText, className = '' }: Se
           ? 'border-[#0041CE] ring-2 ring-[#0041CE]/10 shadow-sm'
           : 'border-gray-200 dark:border-[#30363d] shadow-sm'
       }`}>
-        {isLoading ? (
-          <svg className="w-3.5 h-3.5 text-gray-400 animate-spin shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-            <path strokeLinecap="round" d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83" />
-          </svg>
-        ) : (
-          <svg className="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-          </svg>
-        )}
+        <svg className="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+        </svg>
         <input
           type="text"
           value={query}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          onFocus={() => { setIsFocused(true); if (suggestions.length > 0) setIsOpen(true); }}
+          onFocus={() => { setIsFocused(true); if (query.trim().length >= 2) setIsOpen(true); }}
           onBlur={() => setIsFocused(false)}
           placeholder="Buscar propiedad, barrio o dirección..."
           className="flex-1 bg-transparent text-sm text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:outline-none min-w-0"
@@ -136,31 +144,35 @@ export default function SearchBar({ onSelect, onSearchText, className = '' }: Se
         )}
       </div>
 
-      {/* Dropdown — sugerencias de Mapbox para volar al lugar */}
+      {/* Dropdown — sugerencias de propiedades reales */}
       {isOpen && suggestions.length > 0 && (
         <ul className="absolute top-full left-0 right-0 mt-1.5 bg-white dark:bg-[#161b22] border border-gray-100 dark:border-[#30363d] rounded-xl shadow-xl overflow-hidden z-[300]">
-          <li className="px-4 py-2 border-b border-gray-50 dark:border-[#21262d]">
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Ir a ubicación en el mapa</p>
-          </li>
-          {suggestions.map((s) => (
-            <li key={s.id}>
+          {suggestions.map((s, i) => (
+            <li key={i}>
               <button
-                onMouseDown={(e) => e.preventDefault()} // evita blur antes del click
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => handleSelect(s)}
-                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-[#21262d] transition text-sm group"
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-[#21262d] transition text-sm group"
               >
                 <svg className="w-4 h-4 text-gray-400 group-hover:text-[#0041CE] shrink-0 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
                 </svg>
                 <div className="min-w-0">
-                  <p className="font-medium text-gray-800 dark:text-gray-200 truncate">{s.text}</p>
-                  <p className="text-xs text-gray-400 truncate">{s.place_name}</p>
+                  <p className="font-medium text-gray-800 dark:text-gray-200 truncate">{s.label}</p>
+                  <p className="text-xs text-gray-400 truncate">{s.sublabel}</p>
                 </div>
               </button>
             </li>
           ))}
         </ul>
+      )}
+
+      {/* Sin resultados */}
+      {isOpen && query.trim().length >= 2 && suggestions.length === 0 && (
+        <div className="absolute top-full left-0 right-0 mt-1.5 bg-white dark:bg-[#161b22] border border-gray-100 dark:border-[#30363d] rounded-xl shadow-xl z-[300] px-4 py-3">
+          <p className="text-sm text-gray-400">Sin resultados para &ldquo;{query}&rdquo;</p>
+        </div>
       )}
     </div>
   );
