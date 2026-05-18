@@ -24,27 +24,27 @@ export default function Navbar({ onLocationSelect, onSearchText, properties = []
   return (
     <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center gap-3 px-4 md:px-6 bg-white/95 dark:bg-[#0d1117]/95 backdrop-blur-sm border-b border-gray-100 dark:border-[#21262d] transition-colors duration-300">
 
-      {/* ── Logo ────────────────────────────────────────── */}
+      {/* ── Logo ────────────────────────────────── */}
       <Link href="/" className="flex items-center select-none shrink-0">
         <Image 
           src="/logos/Logo Principal.svg" 
           alt="Netze Logo" 
-          width={160} 
-          height={52} 
-          className="block dark:hidden object-contain" 
+          width={120} 
+          height={40} 
+          className="block dark:hidden object-contain w-[80px] md:w-[120px]" 
         />
         <Image 
           src="/logos/Para fondos oscuros.svg" 
           alt="Netze Logo" 
-          width={160} 
-          height={52} 
-          className="hidden dark:block object-contain" 
+          width={120} 
+          height={40} 
+          className="hidden dark:block object-contain w-[80px] md:w-[120px]" 
         />
       </Link>
 
       {/* ── SearchBar — visible en mobile y desktop ─────────── */}
       {onLocationSelect && (
-        <div className="flex flex-1 max-w-xs md:max-w-md mx-auto">
+        <div className="flex flex-1 min-w-0 max-w-[160px] md:max-w-md mx-2 md:mx-auto">
           <SearchBar
             onSelect={onLocationSelect}
             onSearchText={onSearchText}
