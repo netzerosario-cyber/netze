@@ -386,13 +386,21 @@ export async function getProperties(
     extra_attributes:    p.extra_attributes ?? [],
     videos:              p.videos ?? [],
   })).map((prop) => {
-    // Clasificar terrenos: si tiene tag "Seguridad 24hs" → Barrio Privado
-    if (prop.property_type?.id === PROPERTY_TYPE_IDS.Lote) {
-      const hasSeguridad24 = prop.tags?.some((t) => {
-        const name = t.name?.toLowerCase() ?? '';
-        return name.includes('seguridad') && name.includes('24');
-      }) ?? false;
-      prop._terrainClass = hasSeguridad24 ? 'privado' : 'abierto';
+    // Clasificar terrenos: Lote (1) y Barrio Cerrado (13)
+    const TERRAIN_TYPE_IDS = [PROPERTY_TYPE_IDS.Lote, PROPERTY_TYPE_IDS['Barrio Cerrado']];
+    if (prop.property_type?.id != null && TERRAIN_TYPE_IDS.includes(prop.property_type.id as typeof TERRAIN_TYPE_IDS[number])) {
+      const tagNames = prop.tags?.map((t) => t.name ?? '') ?? [];
+      const hasSeguridad24 = tagNames.some((name) => {
+        const n = name.toLowerCase();
+        return (n.includes('seguridad') && n.includes('24')) ||
+               n.includes('guardia') ||
+               n.includes('vigilancia');
+      });
+      // También detectar en la descripción
+      const descLower = (prop.description ?? '').toLowerCase();
+      const hasInDesc = descLower.includes('barrio privado') || descLower.includes('barrio cerrado');
+      prop._terrainClass = (hasSeguridad24 || hasInDesc) ? 'privado' : 'abierto';
+      console.info(`[Netze Terrain] id=${prop.id} type=${prop.property_type?.id} tags=[${tagNames.join(', ')}] => ${prop._terrainClass}`);
     }
     return prop;
   });
