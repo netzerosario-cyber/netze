@@ -7,7 +7,7 @@ import Link from 'next/link';
 export default function Footer() {
   const year = new Date().getFullYear();
   return (
-    <footer className="border-t border-gray-100 dark:border-[#21262d] bg-white dark:bg-[#0d1117] py-6 px-4 md:px-8 mt-auto">
+    <footer className="border-t border-gray-100 dark:border-[#21262d] bg-white dark:bg-[#0d1117] py-3 px-4 md:px-8 mt-auto">
       <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
 
         {/* Logo + info */}
