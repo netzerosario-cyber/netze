@@ -312,7 +312,7 @@ export default function HomePage() {
                   Ver mapa
                 </button>
                 <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                  {sortedVisibleProps.length} {sortedVisibleProps.length === 1 ? 'propiedad' : 'propiedades'}
+                  Propiedades disponibles
                 </p>
               </div>
               <div className="flex items-center gap-2">
