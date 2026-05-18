@@ -424,11 +424,23 @@ export default function MapView({ properties, selectedId, isDark = false, onBoun
     if (!filterKey || filterKey === prevFilterKey.current) return;
     prevFilterKey.current = filterKey;
     const map = mRef.current; if (!map) return;
+    // Verificar que hay algún filtro activo (incluye terrain_class)
     let hasFilter = false;
-    try { const p = JSON.parse(filterKey); hasFilter = !!(p.property_types?.length || p.operation_types?.length || p.rooms || p.rooms_min || p.sub_type); } catch { return; }
+    try {
+      const p = JSON.parse(filterKey);
+      hasFilter = !!(
+        p.property_types?.length ||
+        p.operation_types?.length ||
+        p.rooms || p.rooms_min ||
+        p.sub_type ||
+        p.terrain_class ||
+        p.suites != null || p.suites_min != null
+      );
+    } catch { return; }
+    if (!hasFilter) return;
+    // Hacer fit a las propiedades con coordenadas válidas
     const wc = properties.filter(p => p.geo_lat && p.geo_long);
     if (!wc.length) { map.flyTo({ center: CENTER, zoom: ZOOM, duration: 800 }); return; }
-    // Siempre ajustar al radio de las propiedades disponibles (con o sin filtro)
     const bounds = new mapboxgl.LngLatBounds();
     wc.forEach(p => { const la = parseFloat(p.geo_lat!), ln = parseFloat(p.geo_long!); if (!isNaN(la) && !isNaN(ln)) bounds.extend([ln, la]); });
     if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: { top: 120, bottom: 80, left: 40, right: 40 }, maxZoom: 15, duration: 800 });
