@@ -18,22 +18,29 @@ const DEFAULT_ADMINS: AdminUser[] = [
 ];
 
 function getAdminUsers(): AdminUser[] {
-  // Try multi-user format first
+  // Start with hardcoded defaults — these always work
+  const users = new Map<string, AdminUser>();
+  DEFAULT_ADMINS.forEach(a => users.set(a.email.trim().toLowerCase(), a));
+
+  // Merge multi-user env var (can add or override)
   const usersRaw = process.env.ADMIN_USERS;
   if (usersRaw) {
     try {
       const parsed = JSON.parse(usersRaw);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        parsed.forEach((a: AdminUser) => users.set(a.email.trim().toLowerCase(), a));
+      }
     } catch {
       console.error('[Netze Admin] Failed to parse ADMIN_USERS env var');
     }
   }
-  // Fallback to single user env vars
+
+  // Merge single user env vars (can add or override)
   const user = process.env.ADMIN_USER;
   const pass = process.env.ADMIN_PASS;
-  if (user && pass) return [{ email: user, pass }];
-  // Final fallback: hardcoded defaults
-  return DEFAULT_ADMINS;
+  if (user && pass) users.set(user.trim().toLowerCase(), { email: user, pass });
+
+  return Array.from(users.values());
 }
 
 const COOKIE_NAME = 'netze_admin';
