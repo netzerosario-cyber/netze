@@ -39,6 +39,7 @@ const PROPERTY_TYPES: PropertyTypeOption[] = [
       { label: '1 Dormitorio',  filter: { suites: 1 } },
       { label: '2 Dormitorios', filter: { suites: 2 } },
       { label: '3 Dorm. o más', filter: { suites_min: 3 } },
+      { label: 'Pasillo',       filter: { sub_type: 'pasillo' } },
     ],
   },
   {
@@ -51,11 +52,11 @@ const PROPERTY_TYPES: PropertyTypeOption[] = [
   },
   { id: 'cocheras', label: 'Cocheras', emoji: '🚗', typeIds: [PROPERTY_TYPE_IDS.Cochera] },
   {
-    id: 'terrenos', label: 'Terrenos', emoji: '🌿',
+    id: 'terrenos', label: 'Terrenos', emoji: '🌱',
     typeIds: [PROPERTY_TYPE_IDS.Lote],
     subFilters: [
-      { label: 'Barrio Abierto',  filter: { property_types: [PROPERTY_TYPE_IDS.Lote] } },
-      { label: 'Barrio Cerrado',  filter: { property_types: [PROPERTY_TYPE_IDS['Barrio Cerrado']] } },
+      { label: 'Barrio Abierto',  filter: { terrain_class: 'abierto' } },
+      { label: 'Barrio Privado',   filter: { terrain_class: 'privado' } },
     ],
   },
   {
@@ -90,6 +91,7 @@ function _buildFilters(op: OperationId, typeOpt: PropertyTypeOption, subFilter?:
     if (subFilter.suites != null) f.suites = subFilter.suites;
     if (subFilter.suites_min != null) f.suites_min = subFilter.suites_min;
     if (subFilter.sub_type) f.sub_type = subFilter.sub_type;
+    if (subFilter.terrain_class) f.terrain_class = subFilter.terrain_class;
   }
   return f;
 }
@@ -110,6 +112,7 @@ function getActiveLabel(filters: PropertyFilters): string {
       if (sf.filter.rooms && filters.rooms === sf.filter.rooms) return true;
       if (sf.filter.rooms_min && filters.rooms_min === sf.filter.rooms_min) return true;
       if (sf.filter.sub_type && filters.sub_type === sf.filter.sub_type) return true;
+      if (sf.filter.terrain_class && filters.terrain_class === sf.filter.terrain_class) return true;
       if (sf.filter.property_types?.length === 1 && filters.property_types?.length === 1
           && sf.filter.property_types[0] === filters.property_types[0]) return true;
       return false;
