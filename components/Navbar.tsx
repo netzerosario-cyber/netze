@@ -11,9 +11,11 @@ import SearchBar from '@/components/SearchBar';
 interface NavbarProps {
   /** Callback cuando el usuario selecciona una ubicación del buscador */
   onLocationSelect?: (center: [number, number], placeName: string) => void;
+  /** Callback cuando el usuario tipea texto — filtra propiedades en tiempo real */
+  onSearchText?: (text: string) => void;
 }
 
-export default function Navbar({ onLocationSelect }: NavbarProps) {
+export default function Navbar({ onLocationSelect, onSearchText }: NavbarProps) {
   const { favoritos } = useFavoritos();
   const { toggle, isDark } = useTheme();
 
@@ -38,15 +40,16 @@ export default function Navbar({ onLocationSelect }: NavbarProps) {
         />
       </Link>
 
-      {/* ── SearchBar — solo desktop, centrado ─────────── */}
+      {/* ── SearchBar — visible en mobile y desktop ─────────── */}
       {onLocationSelect && (
-        <div className="hidden md:flex flex-1 max-w-md mx-auto">
-          <SearchBar onSelect={onLocationSelect} className="w-full" />
+        <div className="flex flex-1 max-w-xs md:max-w-md mx-auto">
+          <SearchBar
+            onSelect={onLocationSelect}
+            onSearchText={onSearchText}
+            className="w-full"
+          />
         </div>
       )}
-
-      {/* ── Spacer mobile ─────────────────────────────── */}
-      <div className="flex-1 md:hidden" />
 
       {/* ── Acciones ─────────────────────────────────────── */}
       <div className="flex items-center gap-2 shrink-0">
