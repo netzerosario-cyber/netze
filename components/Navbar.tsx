@@ -22,7 +22,7 @@ export default function Navbar({ onLocationSelect, onSearchText, properties = []
   const { toggle, isDark } = useTheme();
 
   return (
-    <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center gap-3 px-4 md:px-6 bg-white/95 dark:bg-[#0d1117]/95 backdrop-blur-sm border-b border-gray-100 dark:border-[#21262d] transition-colors duration-300">
+    <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center px-3 md:px-6 bg-white/95 dark:bg-[#0d1117]/95 backdrop-blur-sm border-b border-gray-100 dark:border-[#21262d] transition-colors duration-300">
 
       {/* ── Logo ────────────────────────────────── */}
       <Link href="/" className="flex items-center select-none shrink-0">
@@ -31,20 +31,20 @@ export default function Navbar({ onLocationSelect, onSearchText, properties = []
           alt="Netze Logo" 
           width={120} 
           height={40} 
-          className="block dark:hidden object-contain w-[80px] md:w-[120px]" 
+          className="block dark:hidden object-contain w-[68px] md:w-[110px]" 
         />
         <Image 
           src="/logos/Para fondos oscuros.svg" 
           alt="Netze Logo" 
           width={120} 
           height={40} 
-          className="hidden dark:block object-contain w-[80px] md:w-[120px]" 
+          className="hidden dark:block object-contain w-[68px] md:w-[110px]" 
         />
       </Link>
 
       {/* ── SearchBar — visible en mobile y desktop ─────────── */}
       {onLocationSelect && (
-        <div className="flex flex-1 min-w-0 max-w-[160px] md:max-w-md mx-2 md:mx-auto">
+        <div className="flex-1 mx-3 md:mx-4 md:max-w-md">
           <SearchBar
             onSelect={onLocationSelect}
             onSearchText={onSearchText}
