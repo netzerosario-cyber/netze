@@ -29,6 +29,19 @@ const nextConfig = {
       },
     ],
   },
+
+  // ── Redirects: Tokko genera links como netze.com.ar/{id} ────────
+  // Redirigimos permanentemente a /propiedad/{id}
+  async redirects() {
+    return [
+      {
+        // Solo IDs numéricos (mínimo 4 dígitos) en la raíz
+        source: '/:id(\\d{4,})',
+        destination: '/propiedad/:id',
+        permanent: true,
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;
