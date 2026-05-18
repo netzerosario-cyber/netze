@@ -438,7 +438,7 @@ export default function MapView({ properties, selectedId, isDark = false, onBoun
     if (!filterKey || filterKey === prevFilterKey.current) return;
     prevFilterKey.current = filterKey;
     const map = mRef.current; if (!map) return;
-    // Verificar que hay algún filtro activo (incluye terrain_class)
+    // Verificar si el usuario está limpiando filtros o aplicando uno nuevo
     let hasFilter = false;
     try {
       const p = JSON.parse(filterKey);
@@ -451,18 +451,22 @@ export default function MapView({ properties, selectedId, isDark = false, onBoun
         p.suites != null || p.suites_min != null
       );
     } catch { return; }
-    if (!hasFilter) return;
     // Intentar fitBounds con las propiedades actuales
+    // → si hasFilter=false significa que limpiaron los filtros: mostrar TODAS las propiedades
     const wc = properties.filter(p => p.geo_lat && p.geo_long);
     if (!wc.length) {
-      // Propiedades aún no llegaron (race condition en Android) — marcar pendiente
+      // Propiedades aún no llegaron (race condition en Android/limpiar) — marcar pendiente
       pendingFit.current = true;
+      // Si limpió filtros y no hay props todavía, volver a vista general mientras esperamos
+      if (!hasFilter) map.flyTo({ center: CENTER, zoom: ZOOM, duration: 600 });
       return;
     }
     pendingFit.current = false;
     const bounds = new mapboxgl.LngLatBounds();
     wc.forEach(p => { const la = parseFloat(p.geo_lat!), ln = parseFloat(p.geo_long!); if (!isNaN(la) && !isNaN(ln)) bounds.extend([ln, la]); });
-    if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: { top: 120, bottom: 80, left: 40, right: 40 }, maxZoom: 15, duration: 800 });
+    // maxZoom más bajo al limpiar para no quedar demasiado pegado
+    const maxZ = hasFilter ? 15 : 13;
+    if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: { top: 120, bottom: 80, left: 40, right: 40 }, maxZoom: maxZ, duration: 800 });
   }, [filterKey, properties]);
 
   return (
