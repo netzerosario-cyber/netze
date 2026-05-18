@@ -1,7 +1,9 @@
 'use client';
 // ============================================================
 // components/SearchBar.tsx
-// Buscador de barrio/dirección con Mapbox Geocoding API
+// Buscador dual:
+//   1) Filtra propiedades por texto en tiempo real (onSearchText)
+//   2) Mapbox Geocoding para volar el mapa a una ubicación (onSelect)
 // Debounce 350ms · Solo Argentina · max 5 resultados
 // ============================================================
 import { useState, useRef, useEffect, useCallback } from 'react';
@@ -15,10 +17,11 @@ interface Suggestion {
 
 interface SearchBarProps {
   onSelect: (center: [number, number], placeName: string) => void;
+  onSearchText?: (text: string) => void;
   className?: string;
 }
 
-export default function SearchBar({ onSelect, className = '' }: SearchBarProps) {
+export default function SearchBar({ onSelect, onSearchText, className = '' }: SearchBarProps) {
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -56,6 +59,9 @@ export default function SearchBar({ onSelect, className = '' }: SearchBarProps) 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const val = e.target.value;
     setQuery(val);
+    // Filtrar propiedades en tiempo real (sin debounce)
+    onSearchText?.(val);
+    // Geocoding con debounce
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => fetchSuggestions(val), 350);
   }
@@ -64,7 +70,16 @@ export default function SearchBar({ onSelect, className = '' }: SearchBarProps) 
     setQuery(s.text);
     setSuggestions([]);
     setIsOpen(false);
+    // Al elegir una ubicación geográfica, volar el mapa y limpiar el filtro de texto
+    onSearchText?.('');
     onSelect(s.center, s.place_name);
+  }
+
+  function handleClear() {
+    setQuery('');
+    setSuggestions([]);
+    setIsOpen(false);
+    onSearchText?.('');
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -106,12 +121,12 @@ export default function SearchBar({ onSelect, className = '' }: SearchBarProps) 
           onKeyDown={handleKeyDown}
           onFocus={() => { setIsFocused(true); if (suggestions.length > 0) setIsOpen(true); }}
           onBlur={() => setIsFocused(false)}
-          placeholder="Buscar barrio o dirección..."
+          placeholder="Buscar propiedad, barrio o dirección..."
           className="flex-1 bg-transparent text-sm text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:outline-none min-w-0"
         />
         {query && (
           <button
-            onClick={() => { setQuery(''); setSuggestions([]); setIsOpen(false); }}
+            onClick={handleClear}
             className="shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
@@ -121,9 +136,12 @@ export default function SearchBar({ onSelect, className = '' }: SearchBarProps) 
         )}
       </div>
 
-      {/* Dropdown */}
+      {/* Dropdown — sugerencias de Mapbox para volar al lugar */}
       {isOpen && suggestions.length > 0 && (
         <ul className="absolute top-full left-0 right-0 mt-1.5 bg-white dark:bg-[#161b22] border border-gray-100 dark:border-[#30363d] rounded-xl shadow-xl overflow-hidden z-[300]">
+          <li className="px-4 py-2 border-b border-gray-50 dark:border-[#21262d]">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Ir a ubicación en el mapa</p>
+          </li>
           {suggestions.map((s) => (
             <li key={s.id}>
               <button
