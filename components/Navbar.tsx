@@ -7,15 +7,17 @@ import Image from 'next/image';
 import { useFavoritos } from '@/hooks/useFavoritos';
 import { useTheme } from '@/lib/theme';
 import SearchBar from '@/components/SearchBar';
+import { Property } from '@/lib/tokko';
 
 interface NavbarProps {
   /** Callback cuando el usuario selecciona una ubicación del buscador */
   onLocationSelect?: (center: [number, number], placeName: string) => void;
   /** Callback cuando el usuario tipea texto — filtra propiedades en tiempo real */
   onSearchText?: (text: string) => void;
+  properties?: Property[];
 }
 
-export default function Navbar({ onLocationSelect, onSearchText }: NavbarProps) {
+export default function Navbar({ onLocationSelect, onSearchText, properties = [] }: NavbarProps) {
   const { favoritos } = useFavoritos();
   const { toggle, isDark } = useTheme();
 
@@ -46,6 +48,7 @@ export default function Navbar({ onLocationSelect, onSearchText }: NavbarProps) 
           <SearchBar
             onSelect={onLocationSelect}
             onSearchText={onSearchText}
+            properties={properties}
             className="w-full"
           />
         </div>
