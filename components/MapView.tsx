@@ -204,6 +204,7 @@ export default function MapView({ properties, selectedId, isDark = false, onBoun
   const ready = useRef(false);
   const prevFilterKey = useRef(filterKey);
   const initialFitDone = useRef(false);
+  const pendingFit = useRef(false);  // fix Android race: filterKey fires before properties arrive
   const iconsAdded = useRef(new Set<string>());
   const [activeProperty, setActiveProperty] = useState<Property | null>(null);
   const cardClosedRef = useRef(false);
@@ -393,6 +394,19 @@ export default function MapView({ properties, selectedId, isDark = false, onBoun
     }
   }, [properties, registerIcons]);
 
+  // Si hay un fitBounds pendiente (filterKey cambió pero properties estaban vacías)
+  // ejecutarlo cuando lleguen las propiedades — fix para Android
+  useEffect(() => {
+    if (!pendingFit.current) return;
+    const map = mRef.current; if (!map || !ready.current) return;
+    const wc = properties.filter(p => p.geo_lat && p.geo_long);
+    if (!wc.length) return; // todavía sin datos, esperar
+    pendingFit.current = false;
+    const bounds = new mapboxgl.LngLatBounds();
+    wc.forEach(p => { const la = parseFloat(p.geo_lat!), ln = parseFloat(p.geo_long!); if (!isNaN(la) && !isNaN(ln)) bounds.extend([ln, la]); });
+    if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: { top: 120, bottom: 80, left: 40, right: 40 }, maxZoom: 15, duration: 800 });
+  }, [properties]);
+
   // selectedId effect — solo zoom + mostrar card, NO pushear historial
   // (el historial lo maneja handlePillClick; este effect es para selección desde la lista)
   const prevSelId = useRef<number | null>(null);
@@ -438,9 +452,14 @@ export default function MapView({ properties, selectedId, isDark = false, onBoun
       );
     } catch { return; }
     if (!hasFilter) return;
-    // Hacer fit a las propiedades con coordenadas válidas
+    // Intentar fitBounds con las propiedades actuales
     const wc = properties.filter(p => p.geo_lat && p.geo_long);
-    if (!wc.length) { map.flyTo({ center: CENTER, zoom: ZOOM, duration: 800 }); return; }
+    if (!wc.length) {
+      // Propiedades aún no llegaron (race condition en Android) — marcar pendiente
+      pendingFit.current = true;
+      return;
+    }
+    pendingFit.current = false;
     const bounds = new mapboxgl.LngLatBounds();
     wc.forEach(p => { const la = parseFloat(p.geo_lat!), ln = parseFloat(p.geo_long!); if (!isNaN(la) && !isNaN(ln)) bounds.extend([ln, la]); });
     if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: { top: 120, bottom: 80, left: 40, right: 40 }, maxZoom: 15, duration: 800 });
