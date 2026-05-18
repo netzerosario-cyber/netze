@@ -71,12 +71,6 @@ export default function PropertyList({ properties, selectedId, loading = false, 
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-gray-50 dark:bg-[#0d1117]">
-      {/* Header con conteo */}
-      <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-[#21262d] bg-white dark:bg-[#0d1117]">
-        <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-          Propiedades disponibles
-        </p>
-      </div>
 
       {/* Grilla scrolleable — 2 columnas */}
       <div className="flex-1 overflow-y-auto p-3">
