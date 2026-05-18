@@ -3,11 +3,9 @@
 // app/admin/login/page.tsx — Login con logo SVG y loading spinner
 // ============================================================
 import { useState, FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
 export default function AdminLoginPage() {
-  const router = useRouter();
   const [user, setUser] = useState('');
   const [pass, setPass] = useState('');
   const [error, setError] = useState('');
@@ -24,8 +22,10 @@ export default function AdminLoginPage() {
         body: JSON.stringify({ user, pass }),
       });
       if (res.ok) {
-        router.push('/admin');
-        router.refresh();
+        // Hard navigation: garantiza que la cookie esté disponible antes
+        // de que el middleware la verifique. router.push() tiene una race
+        // condition con las cookies en Chrome (Windows/Android).
+        window.location.href = '/admin';
       } else {
         const data = await res.json();
         setError(data.error ?? 'Credenciales incorrectas');
