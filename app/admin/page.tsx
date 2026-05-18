@@ -13,7 +13,7 @@ export default async function AdminDashboard() {
   let isConnected = false;
 
   try {
-    const all = await getProperties({}, 0, 200);
+    const all = await getProperties({}, 0, 200, { skipGeoValidation: true });
     totalProps = all.meta.total_count;
     isConnected = !!process.env.TOKKO_API_KEY;
 

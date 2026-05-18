@@ -250,7 +250,8 @@ export function getFrontPhoto(property: Property): string {
 export async function getProperties(
   filters: PropertyFilters = {},
   offset: number = 0,
-  limit: number = 20
+  limit: number = 20,
+  options?: { skipGeoValidation?: boolean }
 ): Promise<TokkoResponse> {
   const key = getApiKey();
 
@@ -385,21 +386,24 @@ export async function getProperties(
   // ── Validación + corrección de coordenadas ────────────────
   // Sistema completo: cache Supabase → validación bbox/río → 
   // fallback geocoding Mapbox → logging
-  try {
-    const { validateAndCorrectCoordinates } = await import('./geoCorrection');
-    await validateAndCorrectCoordinates(objects);
-  } catch (err) {
-    // Fallback: si geoCorrection falla, aplicar validación básica inline
-    console.error('[Netze Geo] geoCorrection service error, falling back to basic validation:', err);
-    for (const prop of objects) {
-      const v = validateCoordinates(prop.geo_lat, prop.geo_long);
-      if (v.isValid) {
-        prop._geoStatus = 'valid';
-      } else {
-        prop._geoStatus = v.reason === 'missing' || v.reason === 'zero_coords' ? 'no_coords' : 'imprecise';
-        prop.geo_lat = null;
-        prop.geo_long = null;
-        console.warn(`[Netze Geo] ${prop.id} (${prop.address}): ${getValidationReasonLabel(v.reason)}`);
+  // SKIP: cuando el caller no necesita coordenadas (ej: admin dashboard)
+  if (!options?.skipGeoValidation) {
+    try {
+      const { validateAndCorrectCoordinates } = await import('./geoCorrection');
+      await validateAndCorrectCoordinates(objects);
+    } catch (err) {
+      // Fallback: si geoCorrection falla, aplicar validación básica inline
+      console.error('[Netze Geo] geoCorrection service error, falling back to basic validation:', err);
+      for (const prop of objects) {
+        const v = validateCoordinates(prop.geo_lat, prop.geo_long);
+        if (v.isValid) {
+          prop._geoStatus = 'valid';
+        } else {
+          prop._geoStatus = v.reason === 'missing' || v.reason === 'zero_coords' ? 'no_coords' : 'imprecise';
+          prop.geo_lat = null;
+          prop.geo_long = null;
+          console.warn(`[Netze Geo] ${prop.id} (${prop.address}): ${getValidationReasonLabel(v.reason)}`);
+        }
       }
     }
   }

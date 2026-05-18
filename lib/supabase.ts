@@ -27,6 +27,27 @@ export const supabase = new Proxy({} as SupabaseClient, {
 });
 
 // ------------------------------------------------------------
+// supabaseAdmin — cliente con service_role key para operaciones
+// server-side (geoCorrection, coordinate cache, etc.)
+// ------------------------------------------------------------
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
+let _supabaseAdmin: SupabaseClient | null = null;
+function getSupabaseAdmin(): SupabaseClient {
+  if (!_supabaseAdmin) {
+    if (!supabaseUrl || !serviceRoleKey) {
+      throw new Error('[Supabase] SUPABASE_SERVICE_ROLE_KEY no configurada');
+    }
+    _supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+  }
+  return _supabaseAdmin;
+}
+export const supabaseAdmin = new Proxy({} as SupabaseClient, {
+  get(_, prop) {
+    return (getSupabaseAdmin() as unknown as Record<string | symbol, unknown>)[prop];
+  },
+});
+
+// ------------------------------------------------------------
 // Tipos
 // ------------------------------------------------------------
 

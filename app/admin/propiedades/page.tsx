@@ -20,7 +20,7 @@ export default function AdminPropiedadesPage() {
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      fetch('/api/propiedades?offset=0&limit=200&filters={}').then(r => r.json()),
+      fetch('/api/propiedades?offset=0&limit=200&filters={}&skipGeo=1').then(r => r.json()),
       fetch('/api/admin/settings?key=featured_ids').then(r => r.json()),
     ]).then(([propsData, featData]) => {
       setProperties(propsData.objects ?? []);
