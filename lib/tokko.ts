@@ -118,6 +118,8 @@ export interface Property {
   videos: Array<{ url: string; title: string }>;
   /** Resultado de la validación de coordenadas */
   _geoStatus?: GeoStatus;
+  /** Clasificación de terreno: 'privado' (seguridad 24hs) o 'abierto' */
+  _terrainClass?: 'privado' | 'abierto';
 }
 
 
@@ -190,6 +192,8 @@ export interface PropertyFilters {
   suites_min?: number;
   /** Sub-tipo textual: 'pasillo', 'loteo', 'edificio' */
   sub_type?: string;
+  /** Clasificación de terreno: 'privado' o 'abierto' */
+  terrain_class?: 'privado' | 'abierto';
 }
 
 // ------------------------------------------------------------
@@ -381,7 +385,17 @@ export async function getProperties(
     tags:                p.tags ?? [],
     extra_attributes:    p.extra_attributes ?? [],
     videos:              p.videos ?? [],
-  }));
+  })).map((prop) => {
+    // Clasificar terrenos: si tiene tag "Seguridad 24hs" → Barrio Privado
+    if (prop.property_type?.id === PROPERTY_TYPE_IDS.Lote) {
+      const hasSeguridad24 = prop.tags?.some((t) => {
+        const name = t.name?.toLowerCase() ?? '';
+        return name.includes('seguridad') && name.includes('24');
+      }) ?? false;
+      prop._terrainClass = hasSeguridad24 ? 'privado' : 'abierto';
+    }
+    return prop;
+  });
 
   // ── Validación + corrección de coordenadas ────────────────
   // Sistema completo: cache Supabase → validación bbox/río → 
