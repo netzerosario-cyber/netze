@@ -2,6 +2,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Property, getPriceInfo, formatPriceLabel, getFrontPhoto } from '@/lib/tokko';
 import { useFavoritos } from '@/hooks/useFavoritos';
 import { useComparador } from '@/lib/comparador';
@@ -25,6 +26,7 @@ interface PropertyCardProps {
 export default function PropertyCard({ property, isSelected = false, isFeatured = false, onClick }: PropertyCardProps) {
   const { toggleFavorito, esFavorito } = useFavoritos();
   const { toggleComparar, isSeleccionada } = useComparador();
+  const router = useRouter();
   const isFav = esFavorito(property.id);
   const isComp = isSeleccionada(property.id);
   const { price, currency } = getPriceInfo(property);
@@ -34,6 +36,11 @@ export default function PropertyCard({ property, isSelected = false, isFeatured 
   const [shareToast, setShareToast] = useState('');
   const operationType = property.operations?.[0]?.name ?? '';
   const waUrl = buildWhatsAppUrl(property, priceLabel);
+
+  function handleCardClick() {
+    onClick?.(property.id); // seleccionar en el mapa (si hay handler)
+    router.push(`/propiedad/${property.id}`);
+  }
 
   async function handleShare(e: React.MouseEvent) {
     e.stopPropagation();
@@ -49,8 +56,8 @@ export default function PropertyCard({ property, isSelected = false, isFeatured 
     <article
       role="button"
       tabIndex={0}
-      onClick={() => onClick?.(property.id)}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(property.id); } }}
+      onClick={handleCardClick}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCardClick(); } }}
       style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
       className={`group relative bg-white dark:bg-[#161b22] rounded-2xl overflow-hidden transition-all duration-200 cursor-pointer flex flex-col h-full ${
         isSelected
