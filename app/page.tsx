@@ -65,6 +65,7 @@ export default function HomePage() {
   const [featuredIds,  setFeaturedIds]  = useState<number[]>([]);
   const [desktopView,  setDesktopView]  = useState<'map' | 'list'>('map');
   const [sortBy,       setSortBy]       = useState<'relevance' | 'price_asc' | 'price_desc'>('relevance');
+  const [searchText,   setSearchText]   = useState('');
 
   const lastKey = useRef('');
 
@@ -158,6 +159,16 @@ export default function HomePage() {
     if (filters.terrain_class) {
       if (p._terrainClass !== filters.terrain_class) return false;
     }
+    // searchText: filtrar por texto libre (título, dirección, descripción, barrio, tags)
+    if (searchText.trim().length >= 2) {
+      const q = searchText.toLowerCase();
+      const inTitle    = (p.title ?? p.publication_title ?? '').toLowerCase().includes(q);
+      const inAddr     = (p.real_address ?? p.address ?? '').toLowerCase().includes(q);
+      const inDesc     = (p.description ?? '').toLowerCase().includes(q);
+      const inLocation = (p.location?.name ?? '').toLowerCase().includes(q);
+      const inTags     = p.tags?.some(t => t.name?.toLowerCase().includes(q)) ?? false;
+      if (!inTitle && !inAddr && !inDesc && !inLocation && !inTags) return false;
+    }
     return true;
   });
 
@@ -231,7 +242,10 @@ export default function HomePage() {
     <div className="flex flex-col h-dvh overflow-hidden">
 
       {/* Navbar con buscador integrado */}
-      <Navbar onLocationSelect={(center) => { setFlyToLoc(center); setTimeout(() => setFlyToLoc(null), 100); }} />
+      <Navbar
+        onLocationSelect={(center) => { setFlyToLoc(center); setTimeout(() => setFlyToLoc(null), 100); }}
+        onSearchText={(text) => setSearchText(text)}
+      />
 
       {/* SmartFilter — siempre visible (fixed positioning), fuera de los tabs */}
       <SmartFilter
