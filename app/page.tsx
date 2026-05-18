@@ -30,14 +30,25 @@ const PAGE_SIZE = 20;
 
 function filterByBbox(properties: Property[], bbox: BoundingBox | null): Property[] {
   if (!bbox) return properties;
+  // Expandir el bbox un 5% en cada dirección para que propiedades en el borde
+  // del mapa siempre aparezcan en la lista (el marker puede estar en el límite exacto
+  // del viewport y quedar fuera del bbox matemático por 1-2px)
+  const latPad = (bbox.north - bbox.south) * 0.05;
+  const lngPad = (bbox.east  - bbox.west)  * 0.05;
   return properties.filter((p) => {
     if (!p.geo_lat || !p.geo_long) return false;
     const lat = parseFloat(p.geo_lat);
     const lng = parseFloat(p.geo_long);
     if (isNaN(lat) || isNaN(lng)) return false;
-    return lat <= bbox.north && lat >= bbox.south && lng <= bbox.east && lng >= bbox.west;
+    return (
+      lat <= bbox.north + latPad &&
+      lat >= bbox.south - latPad &&
+      lng <= bbox.east  + lngPad &&
+      lng >= bbox.west  - lngPad
+    );
   });
 }
+
 
 export default function HomePage() {
   const { isDark } = useTheme();
