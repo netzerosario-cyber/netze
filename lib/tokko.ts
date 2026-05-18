@@ -120,6 +120,8 @@ export interface Property {
   _geoStatus?: GeoStatus;
   /** Clasificación de terreno: 'privado' (seguridad 24hs) o 'abierto' */
   _terrainClass?: 'privado' | 'abierto';
+  /** Marca que indica que este objeto viene del endpoint /development/ */
+  _isDevelopment?: boolean;
 }
 
 
@@ -496,4 +498,189 @@ export async function getPropertyTypes(): Promise<PropertyType[]> {
 
   const data = await res.json();
   return data.objects ?? data;
+}
+
+// ------------------------------------------------------------
+// Development — emprendimientos inmobiliarios
+// Endpoint: GET /development/?key=KEY&format=json&lang=es_ar
+// Los emprendimientos viven en un endpoint propio, separado de /property/
+// ------------------------------------------------------------
+
+export interface Development {
+  id: number;
+  name: string;
+  publication_title: string | null;
+  address: string;
+  geo_lat: string | null;
+  geo_long: string | null;
+  photos: PropertyPhoto[];
+  description: string | null;
+  development_status: string | null;
+  location: PropertyLocation | null;
+  tags: Array<{ id: number; name: string }>;
+  property_types: PropertyType[];
+  operations: OperationType[];
+  is_starred_on_web: boolean;
+  minimum_price: number | null;
+  currency: string | null;
+  total_surface: number | null;
+  units?: Property[]; // unidades del emprendimiento (solo en detalle)
+}
+
+/**
+ * Normaliza un Development al formato Property para que se muestre
+ * en el mapa y la lista principal con el resto de las propiedades.
+ */
+export function developmentToProperty(d: Development): Property {
+  return {
+    id:                 d.id,
+    title:              d.publication_title ?? d.name ?? d.address,
+    address:            d.address,
+    real_address:       d.address,
+    fake_address:       null,
+    publication_title:  d.publication_title ?? d.name ?? null,
+    reference_code:     null,
+    public_url:         null,
+    geo_lat:            d.geo_lat,
+    geo_long:           d.geo_long,
+    price:              d.minimum_price,
+    currency:           d.currency ?? 'USD',
+    rooms:              null,
+    surface_total:      d.total_surface,
+    surface_covered:    null,
+    roofed_surface:     null,
+    semiroofed_surface: null,
+    unroofed_surface:   null,
+    front_measure:      null,
+    depth_measure:      null,
+    photos:             d.photos,
+    property_type:      { id: PROPERTY_TYPE_IDS.Emprendimiento, name: 'Emprendimiento' },
+    operations:         d.operations.map((op) => ({
+      // Tokko /development/ puede usar 'operation_type' en lugar de 'name'
+      id:     (op as Record<string, unknown> & { operation_id?: number }).operation_id ?? op.id ?? 0,
+      name:   (op as Record<string, unknown> & { operation_type?: string }).operation_type ?? op.name ?? 'Venta',
+      prices: op.prices ?? [],
+    })),
+    status:              2,
+    development_status:  d.development_status,
+    description:         d.description,
+    rich_description:    null,
+    suite_amount:        null,
+    bathroom_amount:     null,
+    toilet_amount:       null,
+    parking_lot_amount:  null,
+    covered_parking_lot: null,
+    uncovered_parking_lot: null,
+    floors:              null,
+    floors_amount:       null,
+    age:                 null,
+    orientation:         null,
+    property_condition:  null,
+    situation:           null,
+    disposition:         null,
+    credit_eligible:     null,
+    expenses:            null,
+    location:            d.location,
+    branch:              null,
+    producer:            null,
+    tags:                d.tags ?? [],
+    extra_attributes:    [],
+    videos:              [],
+    _isDevelopment:      true,
+  };
+}
+
+/**
+ * Obtiene la lista de emprendimientos.
+ * Endpoint: GET /development/?key=KEY&format=json&lang=es_ar
+ */
+export async function getDevelopments(limit = 50): Promise<Development[]> {
+  const key = getApiKey();
+  if (!key) {
+    console.info('[Netze] getDevelopments: sin API key, retornando array vacío');
+    return [];
+  }
+
+  const params = new URLSearchParams({
+    key,
+    format: 'json',
+    lang:   'es_ar',
+    limit:  String(limit),
+  });
+
+  const url = `${TOKKO_BASE_URL}/development/?${params.toString()}`;
+  console.info('[Netze] Tokko Developments URL:', url);
+
+  const res = await fetch(url, { next: { revalidate: 120 } });
+  if (!res.ok) {
+    console.error(`[Netze] getDevelopments error: ${res.status}`);
+    return [];
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const raw = await res.json() as { meta?: TokkoMeta; objects?: any[] } | any[];
+  // Tokko puede devolver un array directo o {meta, objects}
+  const objects = Array.isArray(raw) ? raw : (raw.objects ?? []);
+
+  console.info(`[Netze] Tokko devolvió ${objects.length} emprendimientos`);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return objects.map((d: any): Development => ({
+    id:                d.id,
+    name:              d.name ?? d.publication_title ?? '',
+    publication_title: d.publication_title ?? d.name ?? null,
+    address:           d.address ?? '',
+    geo_lat:           d.geo_lat ?? null,
+    geo_long:          d.geo_long ?? null,
+    photos:            d.photos ?? [],
+    description:       d.description ?? null,
+    development_status: d.development_status ?? null,
+    location:          d.location ?? null,
+    tags:              d.tags ?? [],
+    property_types:    d.property_types ?? [],
+    operations:        d.operations ?? [],
+    is_starred_on_web: d.is_starred_on_web ?? false,
+    minimum_price:     d.minimum_price ?? d.price ?? null,
+    currency:          d.currency ?? 'USD',
+    total_surface:     d.total_surface ? parseFloat(d.total_surface) : null,
+  }));
+}
+
+/**
+ * Obtiene el detalle de un emprendimiento por ID.
+ * Endpoint: GET /development/{id}/?key=KEY&format=json
+ */
+export async function getDevelopment(id: string | number): Promise<Development | null> {
+  const key = getApiKey();
+  if (!key) return null;
+
+  const url = `${TOKKO_BASE_URL}/development/${id}/?key=${key}&format=json&lang=es_ar`;
+  const res = await fetch(url, { next: { revalidate: 120 } });
+  if (!res.ok) {
+    console.error(`[Netze] getDevelopment ${id} error: ${res.status}`);
+    return null;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = await res.json() as any;
+  return {
+    id:                d.id,
+    name:              d.name ?? d.publication_title ?? '',
+    publication_title: d.publication_title ?? d.name ?? null,
+    address:           d.address ?? '',
+    geo_lat:           d.geo_lat ?? null,
+    geo_long:          d.geo_long ?? null,
+    photos:            d.photos ?? [],
+    description:       d.description ?? null,
+    development_status: d.development_status ?? null,
+    location:          d.location ?? null,
+    tags:              d.tags ?? [],
+    property_types:    d.property_types ?? [],
+    operations:        d.operations ?? [],
+    is_starred_on_web: d.is_starred_on_web ?? false,
+    minimum_price:     d.minimum_price ?? d.price ?? null,
+    currency:          d.currency ?? 'USD',
+    total_surface:     d.total_surface ? parseFloat(d.total_surface) : null,
+    units:             d.units ?? d.objects ?? [],
+  };
 }
