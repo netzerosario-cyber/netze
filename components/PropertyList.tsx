@@ -74,9 +74,8 @@ export default function PropertyList({ properties, selectedId, loading = false, 
       {/* Header con conteo */}
       <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-[#21262d] bg-white dark:bg-[#0d1117]">
         <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-          {properties.length} {properties.length === 1 ? 'propiedad' : 'propiedades'}
+          Propiedades disponibles
         </p>
-        <p className="text-xs text-gray-400 dark:text-gray-500">en el área visible</p>
       </div>
 
       {/* Grilla scrolleable — 2 columnas */}
