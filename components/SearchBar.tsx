@@ -96,8 +96,13 @@ export default function SearchBar({ onSelect, onSearchText, properties = [], cla
     onSearchText?.('');
   }
 
-  function handleKeyDown(e: React.KeyboardEvent) {
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Escape') { setIsOpen(false); }
+    if (e.key === 'Enter') {
+      setIsOpen(false);
+      // Bajar el teclado en mobile
+      (e.target as HTMLInputElement).blur();
+    }
   }
 
   // Cerrar al hacer click fuera
@@ -123,14 +128,21 @@ export default function SearchBar({ onSelect, onSearchText, properties = [], cla
           <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
         </svg>
         <input
-          type="text"
+          type="search"
+          inputMode="search"
+          enterKeyHint="search"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
           value={query}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           onFocus={() => { setIsFocused(true); if (query.trim().length >= 2) setIsOpen(true); }}
           onBlur={() => setIsFocused(false)}
           placeholder="Buscar propiedad, barrio o dirección..."
-          className="flex-1 bg-transparent text-sm text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:outline-none min-w-0"
+          style={{ fontSize: '16px' }}
+          className="flex-1 bg-transparent text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:outline-none min-w-0"
         />
         {query && (
           <button
