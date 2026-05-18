@@ -245,6 +245,7 @@ export default function HomePage() {
       <Navbar
         onLocationSelect={(center) => { setFlyToLoc(center); setTimeout(() => setFlyToLoc(null), 100); }}
         onSearchText={(text) => setSearchText(text)}
+        properties={allProps}
       />
 
       {/* SmartFilter — siempre visible (fixed positioning), fuera de los tabs */}
