@@ -143,6 +143,10 @@ export default function HomePage() {
       const inType = (p.property_type?.name ?? '').toLowerCase().includes(st);
       if (!inTags && !inDisp && !inDesc && !inTitle && !inType) return false;
     }
+    // terrain_class: filtrar por clasificación de terreno (privado / abierto)
+    if (filters.terrain_class) {
+      if (p._terrainClass !== filters.terrain_class) return false;
+    }
     return true;
   });
 
