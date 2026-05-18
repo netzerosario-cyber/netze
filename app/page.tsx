@@ -66,6 +66,7 @@ export default function HomePage() {
   const [desktopView,  setDesktopView]  = useState<'map' | 'list'>('map');
   const [sortBy,       setSortBy]       = useState<'relevance' | 'price_asc' | 'price_desc'>('relevance');
   const [searchText,   setSearchText]   = useState('');
+  const [developments, setDevelopments] = useState<Property[]>([]);
 
   const lastKey = useRef('');
 
@@ -111,6 +112,14 @@ export default function HomePage() {
       .catch(() => {});
   }, []);
 
+  // Cargar emprendimientos una sola vez al montar
+  useEffect(() => {
+    fetch('/api/desarrollos')
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data.objects)) setDevelopments(data.objects); })
+      .catch(() => {});
+  }, []);
+
   // Score computation for sorting
   function computeScore(p: Property): number {
     let s = 0;
@@ -127,9 +136,11 @@ export default function HomePage() {
   }
 
   // ── Filtrado client-side ────────────────────────────────────
+  // Combinamos propiedades regulares + emprendimientos normalizados.
   // La API de Tokko filtra por operation_type y un solo type.
   // Todo lo demás (múltiples types, rooms, suites, sub_type) se filtra aquí.
-  const clientFilteredProps = allProps.filter((p) => {
+  const allCombined = [...allProps, ...developments];
+  const clientFilteredProps = allCombined.filter((p) => {
     // property_types: cuando hay múltiples types (ej: Terrenos = Lote + Barrio Cerrado)
     // o cuando el API no filtró por type
     if (filters.property_types && filters.property_types.length > 0) {
