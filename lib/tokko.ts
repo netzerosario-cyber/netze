@@ -446,11 +446,19 @@ export async function getProperties(
       p.operations.some((op) => filters.operation_types!.includes(op.id))
     );
   }
-  // Tokko tampoco filtra confiablemente por type en /property/
-  if (filters.property_types && filters.property_types.length > 0) {
+  // Tokko tampoco filtra confiablemente por type en /property/.
+  // EXCEPCIÓN: sub_type 'pasillo' → PH tiene su propio type ID,
+  // no aplicar el filtro aquí; page.tsx lo filtrará por property_type.name === 'PH'.
+  if (filters.property_types && filters.property_types.length > 0 && filters.sub_type !== 'pasillo') {
     finalObjects = finalObjects.filter((p) =>
       p.property_type ? filters.property_types!.includes(p.property_type.id) : false
     );
+  }
+
+  if (filters.sub_type === 'pasillo') {
+    const typesSeen = [...new Set(finalObjects.map(p => `${p.property_type?.id}:${p.property_type?.name}`))];
+    console.info('[Netze Pasillo] Tipos recibidos de Tokko:', typesSeen);
+    console.info('[Netze Pasillo] Total props antes de filtro PH:', finalObjects.length);
   }
 
   return {
