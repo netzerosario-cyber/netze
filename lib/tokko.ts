@@ -146,16 +146,16 @@ export interface TokkoResponse {
 
 /** IDs típicos de tipos de propiedad en Tokko AR */
 export const PROPERTY_TYPE_IDS = {
-  Departamento: 2,
-  Casa: 3,
-  Lote: 1,
-  Cochera: 10,
-  Oficina: 7,
-  Local: 8,
-  'Barrio Cerrado': 13,
-  Emprendimiento: 4,
-  Campo: 5,
-  'Depósito': 9,
+  Lote:          1,   // Tokko name: "Terreno" en esta cuenta
+  Departamento:  2,
+  Casa:          3,
+  Emprendimiento: 4,  // Reservado — cargar en Tokko para activar
+  Campo:         5,
+  Oficina:       7,
+  Local:         8,
+  'Depósito':    9,
+  Cochera:      10,
+  PH:           13,   // Tokko type "PH" = ID 13 en esta cuenta
 } as const;
 
 /** IDs típicos de tipos de operación */
@@ -392,7 +392,9 @@ export async function getProperties(
     videos:              p.videos ?? [],
   })).map((prop) => {
     // Clasificar terrenos: Lote (1) y Barrio Cerrado (13)
-    const TERRAIN_TYPE_IDS = [PROPERTY_TYPE_IDS.Lote, PROPERTY_TYPE_IDS['Barrio Cerrado']];
+    // Solo terrenos (tipo 1) se clasifican como privado/abierto.
+    // NO incluir PH (tipo 13) que en esta cuenta tiene id 13.
+    const TERRAIN_TYPE_IDS = [PROPERTY_TYPE_IDS.Lote];
     if (prop.property_type?.id != null && TERRAIN_TYPE_IDS.includes(prop.property_type.id as typeof TERRAIN_TYPE_IDS[number])) {
       const tagNames = prop.tags?.map((t) => t.name ?? '') ?? [];
       const hasSeguridad24 = tagNames.some((name) => {
