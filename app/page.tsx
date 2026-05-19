@@ -6,7 +6,7 @@
 // ============================================================
 import { useState, useEffect, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
-import { Property, PropertyFilters, getPriceInfo } from '@/lib/tokko';
+import { Property, PropertyFilters, getPriceInfo, PROPERTY_TYPE_IDS } from '@/lib/tokko';
 import SmartFilter from '@/components/SmartFilter';
 import PropertyList from '@/components/PropertyList';
 import PropertyCard from '@/components/PropertyCard';
@@ -141,11 +141,16 @@ export default function HomePage() {
   // Todo lo demás (múltiples types, rooms, suites, sub_type) se filtra aquí.
   const allCombined = [...allProps, ...developments];
   const clientFilteredProps = allCombined.filter((p) => {
-    // property_types: cuando hay múltiples types (ej: Terrenos = Lote + Barrio Cerrado)
-    // o cuando el API no filtró por type.
-    // EXCEPCIÓN: sub_type 'pasillo' mapea a tipo PH (tiene su propio ID en Tokko),
-    // así que saltamos el filtro de property_types para no excluirlos.
-    if (filters.property_types && filters.property_types.length > 0 && filters.sub_type !== 'pasillo') {
+    // property_types: cuando hay múltiples types o cuando la API no filtró por type.
+    // EXCEPCIÓN pasillo: mapea a tipo PH — saltamos para no excluirlos.
+    // EXCEPCIÓN emprendimiento: las unidades tienen tipos reales (Depto, Terreno);
+    //   detectamos emprendimientos por el campo _development (vinculado en Tokko).
+    const isEmprendimientoFilter =
+      filters.property_types?.includes(PROPERTY_TYPE_IDS.Emprendimiento) ?? false;
+    if (isEmprendimientoFilter) {
+      // Sólo pasar propiedades que pertenezcan a un emprendimiento
+      if (!p._development) return false;
+    } else if (filters.property_types && filters.property_types.length > 0 && filters.sub_type !== 'pasillo') {
       if (!p.property_type || !filters.property_types.includes(p.property_type.id)) {
         return false;
       }
@@ -165,14 +170,16 @@ export default function HomePage() {
         const typeName = (p.property_type?.name ?? '').trim().toUpperCase();
         if (typeName !== 'PH') return false;
       } else {
-        // Otros sub_types: buscar en tags, disposition, description, title y tipo
+        // Otros sub_types: buscar en tags, disposition, description, title, tipo de propiedad
+        // y tipo del emprendimiento al que pertenece (para 'edificio', 'loteo', etc.)
         const st = filters.sub_type.toLowerCase();
-        const inTags  = p.tags?.some((t) => t.name?.toLowerCase().includes(st)) ?? false;
-        const inDisp  = (p.disposition ?? '').toLowerCase().includes(st);
-        const inDesc  = (p.description ?? '').toLowerCase().includes(st);
-        const inTitle = (p.title ?? '').toLowerCase().includes(st);
-        const inType  = (p.property_type?.name ?? '').toLowerCase().includes(st);
-        if (!inTags && !inDisp && !inDesc && !inTitle && !inType) return false;
+        const inTags    = p.tags?.some((t) => t.name?.toLowerCase().includes(st)) ?? false;
+        const inDisp    = (p.disposition ?? '').toLowerCase().includes(st);
+        const inDesc    = (p.description ?? '').toLowerCase().includes(st);
+        const inTitle   = (p.title ?? '').toLowerCase().includes(st);
+        const inType    = (p.property_type?.name ?? '').toLowerCase().includes(st);
+        const inDevType = (p._development?.type?.name ?? '').toLowerCase().includes(st);
+        if (!inTags && !inDisp && !inDesc && !inTitle && !inType && !inDevType) return false;
       }
     }
     // terrain_class: filtrar por clasificación de terreno (privado / abierto)
