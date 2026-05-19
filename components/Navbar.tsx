@@ -23,7 +23,7 @@ export default function Navbar({ onLocationSelect, onSearchText, properties = []
 
   return (
     <header className="
-      fixed top-0 inset-x-0 z-50 h-14
+      fixed top-0 inset-x-0 z-[210] h-14
       bg-white/95 dark:bg-[#0d1117]/95 backdrop-blur-sm
       border-b border-gray-100 dark:border-[#21262d] transition-colors duration-300
       flex items-center gap-2 px-3
