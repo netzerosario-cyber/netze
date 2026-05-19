@@ -306,8 +306,11 @@ export async function getProperties(
   // Filtros por tipo de propiedad: type
   // IMPORTANTE: Tokko /property/ solo acepta UN valor de type.
   // Si hay múltiples (ej: Terrenos = Lote+Barrio Cerrado), NO enviar
-  // el param y filtrar client-side en page.tsx
-  if (filters.property_types && filters.property_types.length === 1) {
+  // el param y filtrar client-side en page.tsx.
+  // EXCEPCIÓN: sub_type 'pasillo' → en Tokko se carga como PH (tipo propio),
+  // NO enviamos type=2 (Departamento) o no llegaría ningún PH.
+  const skipTypeFilter = filters.sub_type === 'pasillo';
+  if (!skipTypeFilter && filters.property_types && filters.property_types.length === 1) {
     params.set('type', String(filters.property_types[0]));
   }
   if (filters.development_status) {
