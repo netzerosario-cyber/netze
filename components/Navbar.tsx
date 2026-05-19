@@ -15,9 +15,11 @@ interface NavbarProps {
   onLocationSelect?: (center: [number, number], placeName: string) => void;
   onSearchText?: (text: string) => void;
   properties?: Property[];
+  /** Callback opcional: se llama al tocar el logo (ej: para resetear filtros en la home) */
+  onLogoClick?: () => void;
 }
 
-export default function Navbar({ onLocationSelect, onSearchText, properties = [] }: NavbarProps) {
+export default function Navbar({ onLocationSelect, onSearchText, properties = [], onLogoClick }: NavbarProps) {
   const { favoritos } = useFavoritos();
   const { toggle, isDark } = useTheme();
 
@@ -32,7 +34,7 @@ export default function Navbar({ onLocationSelect, onSearchText, properties = []
 
       {/* ── Col 1: Logo — izquierda ──────────────────── */}
       <div className="shrink-0 md:flex md:items-center">
-        <Link href="/" className="flex items-center select-none">
+        <Link href="/" onClick={onLogoClick} className="flex items-center select-none">
           <Image
             src="/logos/Logo Principal.svg"
             alt="Netze Logo"
