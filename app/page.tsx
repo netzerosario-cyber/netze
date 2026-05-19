@@ -192,7 +192,7 @@ export default function HomePage() {
     return true;
   });
 
-  // Propiedades visibles con mayor score primero
+  // visibleProps: solo para el mapa (sidebar desktop que sincroniza con el viewport)
   const visibleProps = filterByBbox(clientFilteredProps, bbox).sort((a, b) => computeScore(b) - computeScore(a));
 
   // Apply sort for display
@@ -207,7 +207,12 @@ export default function HomePage() {
     });
   }
 
+  // sortedVisibleProps: sidebar del mapa (bbox-filtered)
   const sortedVisibleProps = sortProperties(visibleProps);
+  // allSortedProps: lista completa (sin filtro bbox) — incluye propiedades sin coordenadas
+  const allSortedProps = sortProperties(
+    [...clientFilteredProps].sort((a, b) => computeScore(b) - computeScore(a))
+  );
   const hasMore = allProps.length < totalCount;
   // hasMore se basa en allProps (paginación API), no en clientFilteredProps
 
@@ -364,7 +369,7 @@ export default function HomePage() {
             {/* Grid de cards */}
             <div className="flex-1 overflow-y-auto p-6">
               <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {sortedVisibleProps.map((property) => (
+                {allSortedProps.map((property) => (
                   <div key={property.id}>
                     <PropertyCard
                       property={property}
@@ -384,7 +389,7 @@ export default function HomePage() {
                   {loading ? 'Cargando...' : 'Ver más propiedades'}
                 </button>
               )}
-              {!loading && sortedVisibleProps.length === 0 && (
+              {!loading && allSortedProps.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
                   <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-[#21262d] flex items-center justify-center">
                     <svg className="w-7 h-7 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -469,7 +474,7 @@ export default function HomePage() {
           style={{ zIndex: mobileTab === 'list' ? 10 : 1, pointerEvents: mobileTab === 'list' ? 'auto' : 'none' }}
         >
           <PropertyList
-            properties={visibleProps}
+            properties={allSortedProps}
             selectedId={selectedId}
             loading={loading}
             hasMore={hasMore}
