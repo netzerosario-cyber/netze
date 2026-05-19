@@ -169,9 +169,17 @@ export default function HomePage() {
         // En Tokko, las propiedades tipo pasillo se cargan como "PH"
         const typeName = (p.property_type?.name ?? '').trim().toUpperCase();
         if (typeName !== 'PH') return false;
+      } else if (isEmprendimientoFilter && (filters.sub_type === 'edificio' || filters.sub_type === 'loteo')) {
+        // Sub-filtros de emprendimientos por tipo de desarrollo (código Tokko):
+        //   'edificio' → development.type.code = 'BU' (Building/Edificio)
+        //   'loteo'    → cualquier desarrollo que NO sea Edificio
+        //                (Barrio Privado=PN, Loteo=LO, Barrio Abierto, etc.)
+        const devCode = (p._development?.type?.code ?? '').toUpperCase();
+        if (filters.sub_type === 'edificio' && devCode !== 'BU') return false;
+        if (filters.sub_type === 'loteo'    && devCode === 'BU') return false;
       } else {
         // Otros sub_types: buscar en tags, disposition, description, title, tipo de propiedad
-        // y tipo del emprendimiento al que pertenece (para 'edificio', 'loteo', etc.)
+        // y tipo del emprendimiento al que pertenece
         const st = filters.sub_type.toLowerCase();
         const inTags    = p.tags?.some((t) => t.name?.toLowerCase().includes(st)) ?? false;
         const inDisp    = (p.disposition ?? '').toLowerCase().includes(st);
