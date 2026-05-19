@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { getProperty, getPriceInfo, formatPriceLabel, Property } from '@/lib/tokko';
 import PropertyDetailClient from './PropertyDetailClient';
 import PhotoGallery from '@/components/PhotoGallery';
+import Navbar from '@/components/Navbar';
 
 interface PageProps { params: Promise<{ id: string }>; }
 
@@ -298,10 +299,14 @@ export default async function PropiedadPage({ params }: PageProps) {
   const mobileWaUrl = `https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '5493417538537'}?text=${encodeURIComponent(`Hola! Me interesa la propiedad en ${property.address} (${mobilePriceLabel}). ¿Pueden darme más información?`)}`;
 
   return (
-    <div className="overflow-y-auto h-full bg-gray-50">
+    <div className="min-h-dvh bg-gray-50">
       {/* Schema.org */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <div className="max-w-5xl mx-auto px-4 py-4 md:py-6 pb-24 md:pb-6">
+
+      {/* Navbar — logo + dark mode toggle, sin buscador */}
+      <Navbar />
+
+      <div className="max-w-5xl mx-auto px-4 pt-20 pb-24 md:pb-8">
         {/* Navegación — volver */}
         <nav className="flex items-center gap-2 text-sm text-gray-400 mb-4 md:mb-6">
           <Link href="/" className="hover:text-[#0041CE] transition-colors flex items-center gap-1.5 font-medium">
