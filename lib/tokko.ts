@@ -122,6 +122,16 @@ export interface Property {
   _terrainClass?: 'privado' | 'abierto';
   /** Marca que indica que este objeto viene del endpoint /development/ */
   _isDevelopment?: boolean;
+  /** Datos del emprendimiento al que pertenece esta unidad (campo 'development' de Tokko) */
+  _development?: {
+    id: number;
+    name: string;
+    type: { id: number; name: string; code: string } | null;
+    address: string | null;
+    geo_lat: string | null;
+    geo_long: string | null;
+    photos: PropertyPhoto[];
+  } | null;
 }
 
 
@@ -309,7 +319,9 @@ export async function getProperties(
   // el param y filtrar client-side en page.tsx.
   // EXCEPCIÓN: sub_type 'pasillo' → en Tokko se carga como PH (tipo propio),
   // NO enviamos type=2 (Departamento) o no llegaría ningún PH.
-  const skipTypeFilter = filters.sub_type === 'pasillo';
+  const skipTypeFilter =
+    filters.sub_type === 'pasillo' ||
+    (filters.property_types?.includes(PROPERTY_TYPE_IDS.Emprendimiento) ?? false);
   if (!skipTypeFilter && filters.property_types && filters.property_types.length === 1) {
     params.set('type', String(filters.property_types[0]));
   }
@@ -349,6 +361,16 @@ export async function getProperties(
     surface_covered:  p.roofed_surface ?? null,
     photos:           p.photos ?? [],
     property_type:    p.type ? { id: p.type.id ?? p.type, name: p.type.name ?? '' } : null,
+    // Emprendimiento al que pertenece esta unidad (viene en el campo 'development' de Tokko)
+    _development: p.development && typeof p.development === 'object' && p.development.id ? {
+      id:      p.development.id,
+      name:    p.development.name ?? p.development.publication_title ?? '',
+      type:    p.development.type ?? null,
+      address: p.development.address ?? null,
+      geo_lat: p.development.geo_lat ?? null,
+      geo_long: p.development.geo_long ?? null,
+      photos:  p.development.photos ?? [],
+    } : null,
     // Normalizar operations: /property/ usa operation_id en vez de id
     operations: (p.operations ?? []).map((op: { operation_id?: number; id?: number; operation_type?: string; name?: string; prices?: unknown[] }) => ({
       id:     op.operation_id ?? op.id ?? 0,
@@ -451,7 +473,10 @@ export async function getProperties(
   // Tokko tampoco filtra confiablemente por type en /property/.
   // EXCEPCIÓN: sub_type 'pasillo' → PH tiene su propio type ID,
   // no aplicar el filtro aquí; page.tsx lo filtrará por property_type.name === 'PH'.
-  if (filters.property_types && filters.property_types.length > 0 && filters.sub_type !== 'pasillo') {
+  // EXCEPCIÓN: Emprendimiento (type 4) → las unidades se detectan por campo _development,
+  // no por property_type.id. Saltear el filtro para que lleguen todos.
+  const isEmprendimientoFilter = filters.property_types?.includes(PROPERTY_TYPE_IDS.Emprendimiento) ?? false;
+  if (filters.property_types && filters.property_types.length > 0 && filters.sub_type !== 'pasillo' && !isEmprendimientoFilter) {
     finalObjects = finalObjects.filter((p) =>
       p.property_type ? filters.property_types!.includes(p.property_type.id) : false
     );
