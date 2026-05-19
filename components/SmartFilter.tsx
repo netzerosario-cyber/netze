@@ -63,8 +63,8 @@ const PROPERTY_TYPES: PropertyTypeOption[] = [
     id: 'emprendimientos', label: 'Emprendimientos', emoji: '🏗',
     typeIds: [PROPERTY_TYPE_IDS.Emprendimiento],
     subFilters: [
-      { label: 'Loteos',    filter: { sub_type: 'loteo' } },
-      { label: 'Edificios', filter: { sub_type: 'edificio' } },
+      { label: 'Loteos / Barrios', filter: { sub_type: 'loteo' } },
+      { label: 'Edificios',        filter: { sub_type: 'edificio' } },
     ],
   },
   { id: 'locales', label: 'Locales', emoji: '🏪', typeIds: [PROPERTY_TYPE_IDS.Local] },
