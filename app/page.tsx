@@ -295,6 +295,13 @@ export default function HomePage() {
         onLocationSelect={(center) => { setFlyToLoc(center); setTimeout(() => setFlyToLoc(null), 100); }}
         onSearchText={(text) => setSearchText(text)}
         properties={allProps}
+        onLogoClick={() => {
+          setFilters({});
+          setSearchText('');
+          setBbox(null);
+          setSelectedId(null);
+          setSortBy('relevance');
+        }}
       />
 
       {/* SmartFilter — siempre visible (fixed positioning), fuera de los tabs */}
