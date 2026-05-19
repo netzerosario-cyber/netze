@@ -7,6 +7,11 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { Property } from '@/lib/tokko';
 
+/** Normaliza tildes y mayúsculas para búsqueda case/accent-insensitive */
+function norm(s: string): string {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
 interface SearchBarProps {
   onSelect: (center: [number, number], placeName: string) => void;
   onSearchText?: (text: string) => void;
@@ -29,46 +34,62 @@ export default function SearchBar({ onSelect, onSearchText, properties = [], cla
 
   // ── Generar sugerencias únicas desde las propiedades cargadas ──
   const suggestions: Suggestion[] = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = norm(query.trim());
     if (q.length < 2) return [];
 
     const seen = new Set<string>();
     const results: Suggestion[] = [];
 
-    // 1. Barrios / localidades únicas
+    // 1. Localidades / barrios desde full_location y short_location
     for (const p of properties) {
-      const loc = p.location?.name;
-      if (loc && loc.toLowerCase().includes(q) && !seen.has(loc.toLowerCase())) {
-        seen.add(loc.toLowerCase());
-        const lat = p.geo_lat ? parseFloat(p.geo_lat) : null;
-        const lng = p.geo_long ? parseFloat(p.geo_long) : null;
-        results.push({
-          label: loc,
-          sublabel: 'Zona / Localidad',
-          searchText: loc,
-          center: lat && lng ? [lng, lat] : undefined,
-        });
+      // Tokko devuelve full_location="Argentina | Santa Fe | Rold\u00e1n | Punta Chacra"
+      // Usamos ese string para extraer todas las partes de la jerarquía
+      const fullLoc   = p.location?.full_location  ?? '';
+      const shortLoc  = p.location?.short_location ?? '';
+      const locName   = p.location?.name           ?? '';
+
+      // Juntamos todas las partes relevantes
+      const parts = [
+        locName,
+        ...shortLoc.split('|').map(s => s.trim()).filter(Boolean),
+      ];
+      // Deduplicate parts
+      const uniqueParts = [...new Set(parts)];
+
+      const lat = p.geo_lat  ? parseFloat(p.geo_lat)  : null;
+      const lng = p.geo_long ? parseFloat(p.geo_long) : null;
+
+      for (const part of uniqueParts) {
+        if (part && norm(part).includes(q) && !seen.has(norm(part))) {
+          seen.add(norm(part));
+          results.push({
+            label:      part,
+            sublabel:   fullLoc || 'Zona / Localidad',
+            searchText: part,
+            center:     lat && lng ? [lng, lat] : undefined,
+          });
+        }
       }
     }
 
-    // 2. Propiedades específicas (dirección + precio)
+    // 2. Propiedades específicas (dirección + título)
     for (const p of properties) {
-      const addr = (p.real_address ?? p.address ?? '').trim();
+      const addr  = (p.real_address ?? p.address ?? '').trim();
       const title = (p.title ?? p.publication_title ?? '').trim();
-      const matchAddr  = addr.toLowerCase().includes(q);
-      const matchTitle = title.toLowerCase().includes(q);
-      const matchDesc  = (p.description ?? '').toLowerCase().includes(q);
-      const matchTags  = p.tags?.some(t => t.name?.toLowerCase().includes(q)) ?? false;
+      const matchAddr  = norm(addr).includes(q);
+      const matchTitle = norm(title).includes(q);
+      const matchDesc  = norm(p.description ?? '').includes(q);
+      const matchTags  = p.tags?.some(t => norm(t.name ?? '').includes(q)) ?? false;
 
       if ((matchAddr || matchTitle || matchDesc || matchTags) && !seen.has(String(p.id))) {
         seen.add(String(p.id));
-        const lat = p.geo_lat ? parseFloat(p.geo_lat) : null;
+        const lat = p.geo_lat  ? parseFloat(p.geo_lat)  : null;
         const lng = p.geo_long ? parseFloat(p.geo_long) : null;
         results.push({
-          label: addr || title,
-          sublabel: p.property_type?.name ?? 'Propiedad',
+          label:      addr || title,
+          sublabel:   p.property_type?.name ?? 'Propiedad',
           searchText: addr || title,
-          center: lat && lng ? [lng, lat] : undefined,
+          center:     lat && lng ? [lng, lat] : undefined,
         });
       }
     }
