@@ -1,6 +1,8 @@
 'use client';
 // ============================================================
 // components/Navbar.tsx
+// Layout desktop: grid 3 columnas (logo | búsqueda centrada | acciones derecha)
+// Layout mobile:  flex (logo | búsqueda flex-1 | toggle)
 // ============================================================
 import Link from 'next/link';
 import Image from 'next/image';
@@ -10,9 +12,7 @@ import SearchBar from '@/components/SearchBar';
 import { Property } from '@/lib/tokko';
 
 interface NavbarProps {
-  /** Callback cuando el usuario selecciona una ubicación del buscador */
   onLocationSelect?: (center: [number, number], placeName: string) => void;
-  /** Callback cuando el usuario tipea texto — filtra propiedades en tiempo real */
   onSearchText?: (text: string) => void;
   properties?: Property[];
 }
@@ -22,42 +22,49 @@ export default function Navbar({ onLocationSelect, onSearchText, properties = []
   const { toggle, isDark } = useTheme();
 
   return (
-    <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center px-3 md:px-6 bg-white/95 dark:bg-[#0d1117]/95 backdrop-blur-sm border-b border-gray-100 dark:border-[#21262d] transition-colors duration-300">
+    <header className="
+      fixed top-0 inset-x-0 z-50 h-14
+      bg-white/95 dark:bg-[#0d1117]/95 backdrop-blur-sm
+      border-b border-gray-100 dark:border-[#21262d] transition-colors duration-300
+      flex items-center gap-2 px-3
+      md:grid md:grid-cols-3 md:gap-0 md:px-6
+    ">
 
-      {/* ── Logo ────────────────────────────────── */}
-      <Link href="/" className="flex items-center select-none shrink-0">
-        <Image 
-          src="/logos/Logo Principal.svg" 
-          alt="Netze Logo" 
-          width={120} 
-          height={40} 
-          className="block dark:hidden object-contain w-[68px] md:w-[110px]" 
-        />
-        <Image 
-          src="/logos/Para fondos oscuros.svg" 
-          alt="Netze Logo" 
-          width={120} 
-          height={40} 
-          className="hidden dark:block object-contain w-[68px] md:w-[110px]" 
-        />
-      </Link>
-
-      {/* ── SearchBar — visible en mobile y desktop ─────────── */}
-      {onLocationSelect && (
-        <div className="flex-1 mx-3 md:mx-4 md:max-w-md">
-          <SearchBar
-            onSelect={onLocationSelect}
-            onSearchText={onSearchText}
-            properties={properties}
-            className="w-full"
+      {/* ── Col 1: Logo — izquierda ──────────────────── */}
+      <div className="shrink-0 md:flex md:items-center">
+        <Link href="/" className="flex items-center select-none">
+          <Image
+            src="/logos/Logo Principal.svg"
+            alt="Netze Logo"
+            width={120} height={40}
+            className="block dark:hidden object-contain w-[68px] md:w-[110px]"
           />
+          <Image
+            src="/logos/Para fondos oscuros.svg"
+            alt="Netze Logo"
+            width={120} height={40}
+            className="hidden dark:block object-contain w-[68px] md:w-[110px]"
+          />
+        </Link>
+      </div>
+
+      {/* ── Col 2: SearchBar — centro ────────────────── */}
+      {onLocationSelect ? (
+        <div className="flex-1 min-w-0 md:flex md:items-center md:justify-center">
+          <div className="w-full md:max-w-sm">
+            <SearchBar
+              onSelect={onLocationSelect}
+              onSearchText={onSearchText}
+              properties={properties}
+              className="w-full"
+            />
+          </div>
         </div>
-      )}
+      ) : <div />}
 
-      {/* ── Acciones ─────────────────────────────────────── */}
-      <div className="flex items-center gap-2 shrink-0">
+      {/* ── Col 3: Acciones — derecha ────────────────── */}
+      <div className="shrink-0 flex items-center gap-2 md:justify-end">
 
-        {/* Propiedades guardadas */}
         {favoritos.length > 0 && (
           <Link
             href="/favoritos"
@@ -76,22 +83,15 @@ export default function Navbar({ onLocationSelect, onSearchText, properties = []
           title={isDark ? 'Cambiar a modo día' : 'Cambiar a modo noche'}
           className="relative w-9 h-9 flex items-center justify-center rounded-full border border-gray-200 dark:border-[#30363d] hover:border-[#0041CE] dark:hover:border-[#0061FB] transition-all"
         >
-          {/* Sol */}
           <svg
-            className={`absolute text-amber-500 transition-all duration-300 ${
-              isDark ? 'opacity-0 rotate-90 scale-50' : 'opacity-100 rotate-0 scale-100'
-            }`}
+            className={`absolute text-amber-500 transition-all duration-300 ${isDark ? 'opacity-0 rotate-90 scale-50' : 'opacity-100 rotate-0 scale-100'}`}
             width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}
           >
             <circle cx="12" cy="12" r="4" />
             <path strokeLinecap="round" d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
           </svg>
-
-          {/* Luna */}
           <svg
-            className={`absolute text-[#0061FB] transition-all duration-300 ${
-              isDark ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-90 scale-50'
-            }`}
+            className={`absolute text-[#0061FB] transition-all duration-300 ${isDark ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-90 scale-50'}`}
             width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}
           >
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
