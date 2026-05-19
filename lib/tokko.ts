@@ -321,7 +321,7 @@ export async function getProperties(
   const url = `${TOKKO_BASE_URL}/property/?${params.toString()}`;
   console.info('[Netze] Tokko URL:', url);
 
-  const res = await fetch(url, { next: { revalidate: 60 } });
+  const res = await fetch(url, { next: { revalidate: 30 } });
   if (!res.ok) {
     const body = await res.text().catch(() => '');
     console.error(`[Netze] Tokko API error: ${res.status} | ${body.slice(0, 200)}`);
