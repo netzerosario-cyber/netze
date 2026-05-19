@@ -142,8 +142,10 @@ export default function HomePage() {
   const allCombined = [...allProps, ...developments];
   const clientFilteredProps = allCombined.filter((p) => {
     // property_types: cuando hay múltiples types (ej: Terrenos = Lote + Barrio Cerrado)
-    // o cuando el API no filtró por type
-    if (filters.property_types && filters.property_types.length > 0) {
+    // o cuando el API no filtró por type.
+    // EXCEPCIÓN: sub_type 'pasillo' mapea a tipo PH (tiene su propio ID en Tokko),
+    // así que saltamos el filtro de property_types para no excluirlos.
+    if (filters.property_types && filters.property_types.length > 0 && filters.sub_type !== 'pasillo') {
       if (!p.property_type || !filters.property_types.includes(p.property_type.id)) {
         return false;
       }
@@ -156,15 +158,22 @@ export default function HomePage() {
     if (filters.suites != null && p.suite_amount != null && p.suite_amount !== filters.suites) return false;
     // suites_min: filtrar por cantidad mínima de dormitorios
     if (filters.suites_min != null && p.suite_amount != null && p.suite_amount < filters.suites_min) return false;
-    // sub_type: buscar en tags, disposition, description, title y tipo de propiedad
+    // sub_type — 'pasillo' = tipo PH en Tokko (no existe categoría propia de pasillo)
     if (filters.sub_type) {
-      const st = filters.sub_type.toLowerCase();
-      const inTags = p.tags?.some((t) => t.name?.toLowerCase().includes(st)) ?? false;
-      const inDisp = (p.disposition ?? '').toLowerCase().includes(st);
-      const inDesc = (p.description ?? '').toLowerCase().includes(st);
-      const inTitle = (p.title ?? '').toLowerCase().includes(st);
-      const inType = (p.property_type?.name ?? '').toLowerCase().includes(st);
-      if (!inTags && !inDisp && !inDesc && !inTitle && !inType) return false;
+      if (filters.sub_type === 'pasillo') {
+        // En Tokko, las propiedades tipo pasillo se cargan como "PH"
+        const typeName = (p.property_type?.name ?? '').trim().toUpperCase();
+        if (typeName !== 'PH') return false;
+      } else {
+        // Otros sub_types: buscar en tags, disposition, description, title y tipo
+        const st = filters.sub_type.toLowerCase();
+        const inTags  = p.tags?.some((t) => t.name?.toLowerCase().includes(st)) ?? false;
+        const inDisp  = (p.disposition ?? '').toLowerCase().includes(st);
+        const inDesc  = (p.description ?? '').toLowerCase().includes(st);
+        const inTitle = (p.title ?? '').toLowerCase().includes(st);
+        const inType  = (p.property_type?.name ?? '').toLowerCase().includes(st);
+        if (!inTags && !inDisp && !inDesc && !inTitle && !inType) return false;
+      }
     }
     // terrain_class: filtrar por clasificación de terreno (privado / abierto)
     if (filters.terrain_class) {
