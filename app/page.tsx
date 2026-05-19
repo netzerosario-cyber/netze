@@ -7,6 +7,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { Property, PropertyFilters, getPriceInfo, PROPERTY_TYPE_IDS } from '@/lib/tokko';
+
+/** Normaliza tildes y mayúsculas para búsqueda case/accent-insensitive */
+function normSearch(s: string): string {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
 import SmartFilter from '@/components/SmartFilter';
 import PropertyList from '@/components/PropertyList';
 import PropertyCard from '@/components/PropertyCard';
@@ -194,15 +199,19 @@ export default function HomePage() {
     if (filters.terrain_class) {
       if (p._terrainClass !== filters.terrain_class) return false;
     }
-    // searchText: filtrar por texto libre (título, dirección, descripción, barrio, tags)
+    // searchText: filtrar por texto libre con normalización de tildes
+    // Busca en título, dirección, descripción, TODA la jerarquía de ubicación y tags
     if (searchText.trim().length >= 2) {
-      const q = searchText.toLowerCase();
-      const inTitle    = (p.title ?? p.publication_title ?? '').toLowerCase().includes(q);
-      const inAddr     = (p.real_address ?? p.address ?? '').toLowerCase().includes(q);
-      const inDesc     = (p.description ?? '').toLowerCase().includes(q);
-      const inLocation = (p.location?.name ?? '').toLowerCase().includes(q);
-      const inTags     = p.tags?.some(t => t.name?.toLowerCase().includes(q)) ?? false;
-      if (!inTitle && !inAddr && !inDesc && !inLocation && !inTags) return false;
+      const q = normSearch(searchText);
+      const inTitle     = normSearch(p.title ?? p.publication_title ?? '').includes(q);
+      const inAddr      = normSearch(p.real_address ?? p.address ?? '').includes(q);
+      const inDesc      = normSearch(p.description ?? '').includes(q);
+      // Buscar en TODA la jerarquía: "Argentina | Santa Fe | Roldán | Punta Chacra"
+      const inLocName   = normSearch(p.location?.name ?? '').includes(q);
+      const inFullLoc   = normSearch(p.location?.full_location  ?? '').includes(q);
+      const inShortLoc  = normSearch(p.location?.short_location ?? '').includes(q);
+      const inTags      = p.tags?.some(t => normSearch(t.name ?? '').includes(q)) ?? false;
+      if (!inTitle && !inAddr && !inDesc && !inLocName && !inFullLoc && !inShortLoc && !inTags) return false;
     }
     return true;
   });
