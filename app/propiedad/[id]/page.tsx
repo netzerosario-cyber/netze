@@ -169,29 +169,45 @@ function PropertyInfo({ property: p }: { property: Property }) {
         );
       })()}
 
-      {/* Información general */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-3 bg-gray-50 border-b border-gray-100">
-          <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide">Información general</h2>
-        </div>
-        <div className="px-5 py-1">
-          {val(condition)      && <DataRow label="Condición"      value={condition!} />}
-          {val(age)            && <DataRow label="Antigüedad"     value={age!} />}
-          {val(orient)         && <DataRow label="Orientación"    value={orient!} />}
-          {val(situation)      && <DataRow label="Situación"      value={situation!} />}
-          {val(creditOk)       && <DataRow label="Apto crédito"   value={creditOk!} />}
-          {p.floors_amount != null && (p.floors_amount as number) > 0 && <DataRow label="Plantas" value={`${p.floors_amount}`} />}
-          {val(supCubierta)    && <DataRow label="Sup. cubierta"  value={`${supCubierta} m²`} />}
-          {val(supTotal)       && <DataRow label="Sup. total"     value={`${supTotal} m²`} />}
-          {p.semiroofed_surface != null && (p.semiroofed_surface as number) > 0 && <DataRow label="Sup. semicubierta" value={`${p.semiroofed_surface} m²`} />}
-          {p.unroofed_surface  != null && (p.unroofed_surface as number) > 0  && <DataRow label="Sup. descubierta" value={`${p.unroofed_surface} m²`} />}
-          {val(frente)         && <DataRow label="Frente"         value={`${frente} m`} />}
-          {val(fondo)          && <DataRow label="Fondo"          value={`${fondo} m`} />}
-          {p.covered_parking_lot != null && (p.covered_parking_lot as number) > 0 && <DataRow label="Cocheras cubiertas" value={`${p.covered_parking_lot}`} />}
-          {p.uncovered_parking_lot != null && (p.uncovered_parking_lot as number) > 0 && <DataRow label="Cocheras desc." value={`${p.uncovered_parking_lot}`} />}
-          {val(expenses)       && <DataRow label="Expensas"       value={expenses!} />}
-        </div>
-      </div>
+      {/* Información general — solo renderiza si hay al menos un campo */}
+      {(() => {
+        const rows = [
+          val(condition), val(age), val(orient), val(situation), val(creditOk),
+          p.floors_amount != null && (p.floors_amount as number) > 0,
+          val(supCubierta), val(supTotal),
+          p.semiroofed_surface != null && (p.semiroofed_surface as number) > 0,
+          p.unroofed_surface != null && (p.unroofed_surface as number) > 0,
+          val(frente), val(fondo),
+          p.covered_parking_lot != null && (p.covered_parking_lot as number) > 0,
+          p.uncovered_parking_lot != null && (p.uncovered_parking_lot as number) > 0,
+          val(expenses),
+        ];
+        if (!rows.some(Boolean)) return null;
+        return (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="px-5 py-3 bg-gray-50 border-b border-gray-100">
+              <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide">Información general</h2>
+            </div>
+            <div className="px-5 py-1">
+              {val(condition)      && <DataRow label="Condición"      value={condition!} />}
+              {val(age)            && <DataRow label="Antigüedad"     value={age!} />}
+              {val(orient)         && <DataRow label="Orientación"    value={orient!} />}
+              {val(situation)      && <DataRow label="Situación"      value={situation!} />}
+              {val(creditOk)       && <DataRow label="Apto crédito"   value={creditOk!} />}
+              {p.floors_amount != null && (p.floors_amount as number) > 0 && <DataRow label="Plantas" value={`${p.floors_amount}`} />}
+              {val(supCubierta)    && <DataRow label="Sup. cubierta"  value={`${supCubierta} m²`} />}
+              {val(supTotal)       && <DataRow label="Sup. total"     value={`${supTotal} m²`} />}
+              {p.semiroofed_surface != null && (p.semiroofed_surface as number) > 0 && <DataRow label="Sup. semicubierta" value={`${p.semiroofed_surface} m²`} />}
+              {p.unroofed_surface  != null && (p.unroofed_surface as number) > 0  && <DataRow label="Sup. descubierta" value={`${p.unroofed_surface} m²`} />}
+              {val(frente)         && <DataRow label="Frente"         value={`${frente} m`} />}
+              {val(fondo)          && <DataRow label="Fondo"          value={`${fondo} m`} />}
+              {p.covered_parking_lot != null && (p.covered_parking_lot as number) > 0 && <DataRow label="Cocheras cubiertas" value={`${p.covered_parking_lot}`} />}
+              {p.uncovered_parking_lot != null && (p.uncovered_parking_lot as number) > 0 && <DataRow label="Cocheras desc." value={`${p.uncovered_parking_lot}`} />}
+              {val(expenses)       && <DataRow label="Expensas"       value={expenses!} />}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Atributos extra (si los hay) */}
       {p.extra_attributes && (p.extra_attributes as unknown[]).length > 0 && (
@@ -222,20 +238,6 @@ function PropertyInfo({ property: p }: { property: Property }) {
       )}
 
 
-      {/* Banner CTA móvil */}
-      <div className="md:hidden rounded-2xl overflow-hidden shadow-lg">
-        <div className="bg-gradient-to-r from-[#0041CE] to-[#0061FB] p-4 text-white">
-          <p className="text-sm font-semibold mb-0.5">¿Te interesa esta propiedad?</p>
-          <p className="text-xs text-blue-200">Respondemos en menos de 1 hora</p>
-        </div>
-        <a
-          href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '5493417538537'}?text=${encodeURIComponent(`Hola! Me interesa la propiedad ${p.reference_code ?? ''} en ${p.address} (${priceLabel}). ¿Pueden darme más información?`)}`}
-          target="_blank" rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 w-full py-3.5 bg-[#25D366] text-white text-[15px] font-bold"
-        >
-          Consultar por WhatsApp
-        </a>
-      </div>
 
       {/* Aviso legal */}
       <p className="text-[11px] text-gray-400 leading-relaxed">
@@ -293,7 +295,7 @@ export default async function PropiedadPage({ params }: PageProps) {
       {/* Navbar — logo + dark mode toggle, sin buscador */}
       <Navbar />
 
-      <div className="max-w-5xl mx-auto px-4 pt-20 pb-24 md:pb-8">
+      <div className="max-w-5xl mx-auto px-4 pt-20 pb-32 md:pb-10">
         {/* Navegación — volver */}
         <nav className="flex items-center gap-2 text-sm text-gray-400 mb-4 md:mb-6">
           <Link href="/" className="hover:text-[#0041CE] transition-colors flex items-center gap-1.5 font-medium">
