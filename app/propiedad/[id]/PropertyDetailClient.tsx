@@ -49,7 +49,7 @@ export default function PropertyDetailClient({ property }: Props) {
           <p className="text-xs font-semibold text-blue-200 uppercase tracking-wider mb-1">
             {property.operations?.[0]?.name ?? 'Precio'}
           </p>
-          <p className="text-3xl font-black text-white tracking-tight">{priceLabel}</p>
+          <p className="text-3xl font-bold text-white tracking-tight">{priceLabel}</p>
         </div>
 
         <div className="p-4 flex flex-col gap-2.5">
