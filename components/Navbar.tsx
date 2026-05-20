@@ -15,11 +15,12 @@ interface NavbarProps {
   onLocationSelect?: (center: [number, number], placeName: string) => void;
   onSearchText?: (text: string) => void;
   properties?: Property[];
+  searchValue?: string;  // valor controlado del buscador — permite limpiarlo externamente
   /** Callback opcional: se llama al tocar el logo (ej: para resetear filtros en la home) */
   onLogoClick?: () => void;
 }
 
-export default function Navbar({ onLocationSelect, onSearchText, properties = [], onLogoClick }: NavbarProps) {
+export default function Navbar({ onLocationSelect, onSearchText, properties = [], searchValue, onLogoClick }: NavbarProps) {
   const { favoritos } = useFavoritos();
   const { toggle, isDark } = useTheme();
 
@@ -58,6 +59,7 @@ export default function Navbar({ onLocationSelect, onSearchText, properties = []
               onSelect={onLocationSelect}
               onSearchText={onSearchText}
               properties={properties}
+              value={searchValue}
               className="w-full"
             />
           </div>
