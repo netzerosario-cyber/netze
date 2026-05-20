@@ -1,10 +1,8 @@
 'use client';
 // ============================================================
-// components/Lightbox.tsx — Galería fullscreen con portal + navegación
-// Se renderiza como portal en document.body para evitar issues de
-// scroll/overflow del contenedor padre
+// components/Lightbox.tsx — Galería fullscreen con portal
 // ============================================================
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 
 interface LightboxProps {
@@ -14,61 +12,41 @@ interface LightboxProps {
 }
 
 function LightboxContent({ images, initialIndex = 0, onClose }: LightboxProps) {
-  const [idx, setIdx] = useState(initialIndex);
+  const [idx, setIdx]       = useState(initialIndex);
   const [loaded, setLoaded] = useState(false);
-  const [animate, setAnimate] = useState(false);
-  const closedRef = useRef(false);
+  const [visible, setVisible] = useState(false);
 
-  const total = images.length;
-  const goPrev = useCallback(() => { setLoaded(false); setIdx(i => (i - 1 + total) % total); }, [total]);
-  const goNext = useCallback(() => { setLoaded(false); setIdx(i => (i + 1) % total); }, [total]);
+  const total   = images.length;
+  const goPrev  = useCallback(() => { setLoaded(false); setIdx(i => (i - 1 + total) % total); }, [total]);
+  const goNext  = useCallback(() => { setLoaded(false); setIdx(i => (i + 1) % total); }, [total]);
 
-  // Cerrar via UI (no back button) — consume history entry
-  const closeViaUI = useCallback(() => {
-    if (closedRef.current) return;
-    closedRef.current = true;
-    (window as any).__popConsumed = true;
-    history.back();
-  }, []);
+  // Fade-in on mount
+  useEffect(() => { requestAnimationFrame(() => setVisible(true)); }, []);
 
-  // Botón atrás del navegador
-  useEffect(() => {
-    history.pushState({ lightbox: true }, '');
-    function handler() {
-      if (!closedRef.current) {
-        closedRef.current = true;
-        (window as any).__popConsumed = true;
-        onClose();
-      }
-    }
-    window.addEventListener('popstate', handler);
-    return () => window.removeEventListener('popstate', handler);
-  }, [onClose]);
-
-  // Keyboard navigation
-  useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') closeViaUI();
-      if (e.key === 'ArrowLeft') goPrev();
-      if (e.key === 'ArrowRight') goNext();
-    }
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [closeViaUI, goPrev, goNext]);
-
-  // Prevent ALL scrolling
+  // Lock scroll while open — restore on unmount
   useEffect(() => {
     const html = document.documentElement;
     const body = document.body;
-    const prev = { htmlO: html.style.overflow, bodyO: body.style.overflow };
+    const prevHtml = html.style.overflow;
+    const prevBody = body.style.overflow;
     html.style.overflow = 'hidden';
     body.style.overflow = 'hidden';
-    requestAnimationFrame(() => setAnimate(true));
     return () => {
-      html.style.overflow = prev.htmlO;
-      body.style.overflow = prev.bodyO;
+      html.style.overflow = prevHtml;
+      body.style.overflow = prevBody;
     };
   }, []);
+
+  // Keyboard
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape')      onClose();
+      if (e.key === 'ArrowLeft')   goPrev();
+      if (e.key === 'ArrowRight')  goNext();
+    }
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [onClose, goPrev, goNext]);
 
   // Touch swipe
   useEffect(() => {
@@ -79,37 +57,42 @@ function LightboxContent({ images, initialIndex = 0, onClose }: LightboxProps) {
       if (Math.abs(dx) > 50) { dx > 0 ? goPrev() : goNext(); }
     }
     window.addEventListener('touchstart', onStart, { passive: true });
-    window.addEventListener('touchend', onEnd, { passive: true });
-    return () => { window.removeEventListener('touchstart', onStart); window.removeEventListener('touchend', onEnd); };
+    window.addEventListener('touchend',   onEnd,   { passive: true });
+    return () => {
+      window.removeEventListener('touchstart', onStart);
+      window.removeEventListener('touchend',   onEnd);
+    };
   }, [goPrev, goNext]);
 
   return (
     <div
-      className={`fixed inset-0 z-[9999] flex items-center justify-center transition-all duration-300 ${animate ? 'bg-black/95 backdrop-blur-md' : 'bg-black/0'}`}
-      onClick={closeViaUI}
+      className={`fixed inset-0 z-[9999] flex items-center justify-center transition-all duration-300 ${
+        visible ? 'bg-black/95 backdrop-blur-md' : 'bg-black/0'
+      }`}
+      onClick={onClose}
     >
-      {/* Close button */}
+      {/* ── Close button ── */}
       <button
-        onClick={closeViaUI}
-        className="absolute top-4 right-4 z-10 w-12 h-12 flex items-center justify-center rounded-full bg-white/15 hover:bg-white/25 text-white transition-colors"
-        aria-label="Cerrar"
+        onClick={(e) => { e.stopPropagation(); onClose(); }}
+        className="absolute top-4 right-4 z-10 w-12 h-12 flex items-center justify-center rounded-full bg-white/15 hover:bg-white/30 text-white transition-colors"
+        aria-label="Cerrar galería"
       >
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
         </svg>
       </button>
 
-      {/* Counter */}
-      <div className="absolute top-4 left-4 z-10 bg-white/10 backdrop-blur-sm text-white text-sm font-semibold px-3 py-1.5 rounded-full">
+      {/* ── Counter ── */}
+      <div className="absolute top-4 left-4 z-10 bg-white/10 backdrop-blur-sm text-white text-sm font-semibold px-3 py-1.5 rounded-full pointer-events-none">
         {idx + 1} / {total}
       </div>
 
-      {/* Prev button */}
+      {/* ── Prev ── */}
       {total > 1 && (
         <button
           onClick={(e) => { e.stopPropagation(); goPrev(); }}
           className="absolute left-3 z-10 w-11 h-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/25 text-white transition-all hover:scale-110"
-          aria-label="Anterior"
+          aria-label="Foto anterior"
         >
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
@@ -117,12 +100,12 @@ function LightboxContent({ images, initialIndex = 0, onClose }: LightboxProps) {
         </button>
       )}
 
-      {/* Next button */}
+      {/* ── Next ── */}
       {total > 1 && (
         <button
           onClick={(e) => { e.stopPropagation(); goNext(); }}
           className="absolute right-3 z-10 w-11 h-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/25 text-white transition-all hover:scale-110"
-          aria-label="Siguiente"
+          aria-label="Foto siguiente"
         >
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
@@ -130,12 +113,13 @@ function LightboxContent({ images, initialIndex = 0, onClose }: LightboxProps) {
         </button>
       )}
 
-      {/* Image */}
+      {/* ── Image ── */}
       <div
-        className={`relative max-w-[92vw] max-h-[80vh] transition-all duration-300 ${animate ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
+        className={`relative max-w-[92vw] max-h-[80vh] transition-all duration-300 ${
+          visible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Loading spinner */}
         {!loaded && (
           <div className="absolute inset-0 flex items-center justify-center min-w-[200px] min-h-[200px]">
             <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
@@ -152,7 +136,7 @@ function LightboxContent({ images, initialIndex = 0, onClose }: LightboxProps) {
         />
       </div>
 
-      {/* Thumbnails strip */}
+      {/* ── Thumbnails strip ── */}
       {total > 1 && (
         <div
           className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 max-w-[90vw] overflow-x-auto px-2 py-1.5 rounded-xl bg-black/40 backdrop-blur-sm"
