@@ -221,85 +221,6 @@ function PropertyInfo({ property: p }: { property: Property }) {
         </div>
       )}
 
-      {/* Videos y Recorridos Virtuales */}
-      {videos.length > 0 && (() => {
-        // Separar tours virtuales de videos normales
-        const VIRTUAL_PROVIDERS = ['panoee', 'matterport', 'vpix', 'asteroom', 'istaging', '3dvista'];
-        const isTourVideo = (v: Record<string, string>) =>
-          VIRTUAL_PROVIDERS.includes((v.provider ?? '').toLowerCase()) ||
-          ['virtual', '360', 'recorrido', 'tour'].some(kw =>
-            (v.title ?? '').toLowerCase().includes(kw) ||
-            (v.url ?? '').toLowerCase().includes(kw)
-          );
-
-        const tours    = videos.filter(v => isTourVideo(v as unknown as Record<string, string>));
-        const normalVids = videos.filter(v => !isTourVideo(v as unknown as Record<string, string>));
-
-        return (
-          <>
-            {/* Recorridos virtuales 360° */}
-            {tours.map((v, i) => (
-              <div key={`tour-${i}`} className="rounded-2xl overflow-hidden border border-blue-100 shadow-sm">
-                <div className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 border-b border-blue-100">
-                  <span className="text-base">🔄</span>
-                  <span className="text-sm font-bold text-blue-800 uppercase tracking-wide">
-                    {v.title || 'Recorrido Virtual 360°'}
-                  </span>
-                </div>
-                <div className="aspect-video bg-black">
-                  <iframe
-                    src={(v as Record<string, string>).player_url || v.url}
-                    className="w-full h-full"
-                    allow="fullscreen; vr; xr"
-                    allowFullScreen
-                    title={v.title ?? `Tour virtual ${i + 1}`}
-                    loading="lazy"
-                  />
-                </div>
-              </div>
-            ))}
-
-            {/* Videos normales (YouTube, Vimeo, etc.) */}
-            {normalVids.length > 0 && (
-              <div>
-                <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-3">Videos</h2>
-                <div className="flex flex-col gap-3">
-                  {normalVids.map((v, i) => {
-                    const isYoutube = v.url?.includes('youtube') || v.url?.includes('youtu.be');
-                    const isVimeo   = v.url?.includes('vimeo');
-                    const ytId = isYoutube
-                      ? v.url.split('v=')[1]?.split('&')[0] ?? v.url.split('/').pop()
-                      : null;
-                    const vimeoId = isVimeo ? v.url.split('/').pop() : null;
-                    return (
-                      <div key={i} className="rounded-xl overflow-hidden bg-black aspect-video">
-                        {ytId ? (
-                          <iframe
-                            src={`https://www.youtube.com/embed/${ytId}`}
-                            className="w-full h-full" allowFullScreen
-                            title={v.title ?? `Video ${i + 1}`}
-                          />
-                        ) : vimeoId ? (
-                          <iframe
-                            src={`https://player.vimeo.com/video/${vimeoId}`}
-                            className="w-full h-full" allowFullScreen
-                            title={v.title ?? `Video ${i + 1}`}
-                          />
-                        ) : (
-                          <a href={v.url} target="_blank" rel="noopener noreferrer"
-                             className="flex items-center justify-center w-full h-full text-white text-sm underline">
-                            {v.title ?? 'Ver video'}
-                          </a>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </>
-        );
-      })()}
 
       {/* Banner CTA móvil */}
       <div className="md:hidden rounded-2xl overflow-hidden shadow-lg">
@@ -386,6 +307,61 @@ export default async function PropiedadPage({ params }: PageProps) {
         <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-6 md:gap-8 items-start">
           <div className="flex flex-col gap-6">
             <PhotoGallery photos={(property as unknown as { photos?: { image: string; thumb?: string; original?: string; is_front_photo?: boolean }[] }).photos ?? []} title={property.publication_title ?? property.address} />
+
+            {/* Recorridos Virtuales y Videos — directamente debajo de las fotos */}
+            {(() => {
+              const rawVideos = (property as unknown as Record<string, unknown>).videos as { url: string; title?: string; provider?: string; player_url?: string }[] ?? [];
+              if (rawVideos.length === 0) return null;
+              const VIRTUAL_PROVIDERS = ['panoee', 'matterport', 'vpix', 'asteroom', 'istaging', '3dvista'];
+              const isTour = (v: { url: string; title?: string; provider?: string }) =>
+                VIRTUAL_PROVIDERS.includes((v.provider ?? '').toLowerCase()) ||
+                ['virtual', '360', 'recorrido', 'tour'].some(kw =>
+                  (v.title ?? '').toLowerCase().includes(kw) ||
+                  (v.url ?? '').toLowerCase().includes(kw)
+                );
+              const tours     = rawVideos.filter(isTour);
+              const normalVids = rawVideos.filter(v => !isTour(v));
+              return (
+                <>
+                  {tours.map((v, i) => (
+                    <div key={`tour-${i}`} className="rounded-2xl overflow-hidden border border-blue-100 shadow-sm">
+                      <div className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 border-b border-blue-100">
+                        <span className="text-base">🔄</span>
+                        <span className="text-sm font-bold text-blue-800 uppercase tracking-wide">
+                          {v.title || 'Recorrido Virtual 360°'}
+                        </span>
+                      </div>
+                      <div className="aspect-video bg-black">
+                        <iframe src={v.player_url ?? v.url} className="w-full h-full"
+                          allow="fullscreen; vr; xr" allowFullScreen
+                          title={v.title ?? `Tour virtual ${i + 1}`} loading="lazy" />
+                      </div>
+                    </div>
+                  ))}
+                  {normalVids.length > 0 && (
+                    <div>
+                      <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-3">Videos</h2>
+                      <div className="flex flex-col gap-3">
+                        {normalVids.map((v, i) => {
+                          const isYoutube = v.url?.includes('youtube') || v.url?.includes('youtu.be');
+                          const ytId = isYoutube ? v.url.split('v=')[1]?.split('&')[0] ?? v.url.split('/').pop() : null;
+                          const isVimeo = v.url?.includes('vimeo');
+                          const vimeoId = isVimeo ? v.url.split('/').pop() : null;
+                          return (
+                            <div key={i} className="rounded-xl overflow-hidden bg-black aspect-video">
+                              {ytId ? <iframe src={`https://www.youtube.com/embed/${ytId}`} className="w-full h-full" allowFullScreen title={v.title ?? `Video ${i+1}`} />
+                              : vimeoId ? <iframe src={`https://player.vimeo.com/video/${vimeoId}`} className="w-full h-full" allowFullScreen title={v.title ?? `Video ${i+1}`} />
+                              : <a href={v.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center w-full h-full text-white text-sm underline">{v.title ?? 'Ver video'}</a>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+
             <PropertyInfo property={property} />
           </div>
           {/* Desktop sidebar */}
