@@ -294,6 +294,7 @@ export default function HomePage() {
       <Navbar
         onLocationSelect={(center) => { setFlyToLoc(center); setTimeout(() => setFlyToLoc(null), 100); }}
         onSearchText={(text) => setSearchText(text)}
+        searchValue={searchText}
         properties={allProps}
         onLogoClick={() => {
           setFilters({});
