@@ -129,7 +129,7 @@ function PropertyInfo({ property: p }: { property: Property }) {
           {p.publication_title ?? p.address}
         </h1>
         {location && <p className="text-sm text-gray-500 mb-2">📍 {location}</p>}
-        <p className="text-3xl font-black text-[#0041CE] tracking-tight">{priceLabel}</p>
+        <p className="text-3xl font-bold text-[#0041CE] tracking-tight">{priceLabel}</p>
         {expenses && <p className="text-sm text-gray-500 mt-1">+ Expensas: {expenses}/mes</p>}
       </div>
 
