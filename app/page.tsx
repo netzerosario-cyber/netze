@@ -308,6 +308,7 @@ export default function HomePage() {
       <SmartFilter
         filters={filters}
         onFilterChange={setFilters}
+        onClearSearch={() => { setSearchText(''); setBbox(null); }}
         resultCount={clientFilteredProps.length}
       />
 
