@@ -34,7 +34,7 @@ export default function PhotoGallery({ photos, title }: PhotoGalleryProps) {
 
   const main   = photos[0];
   const thumbs = photos.slice(1, 5);
-  const lightboxImages = photos.map(p => ({ src: p.original ?? p.image, alt: title }));
+  const lightboxImages = photos.map(p => ({ src: p.image, alt: title }));
 
   return (
     <>
