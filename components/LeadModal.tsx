@@ -46,37 +46,26 @@ export default function LeadModal({ propiedad, isOpen, onClose }: LeadModalProps
   // Cerrar con Escape
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') closeViaUI();
+      if (e.key === 'Escape') onClose();
     }
     if (isOpen) document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
   }, [isOpen, onClose]);
 
   // ── Botón atrás del navegador ─────────────────────────
-  const closedByBackRef = useRef(false);
-
   useEffect(() => {
-    if (!isOpen) { closedByBackRef.current = false; return; }
+    if (!isOpen) return;
     history.pushState({ leadModal: true }, '');
-    function handler() {
-      if (!closedByBackRef.current) {
-        closedByBackRef.current = true;
-        (window as any).__popConsumed = true;
-        onClose();
-      }
-    }
+    function handler() { onClose(); }
     window.addEventListener('popstate', handler);
     return () => window.removeEventListener('popstate', handler);
   }, [isOpen, onClose]);
 
-  // Cerrar via UI — consume history entry
+  // Cerrar via UI — llama onClose() directamente y limpia el historial
   const closeViaUI = useCallback(() => {
-    if (!closedByBackRef.current) {
-      closedByBackRef.current = true;
-      (window as any).__popConsumed = true;
-      history.back();
-    }
-  }, []);
+    history.back(); // quita la entrada del historial del modal
+    onClose();
+  }, [onClose]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
