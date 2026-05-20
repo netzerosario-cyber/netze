@@ -97,8 +97,8 @@ export default function PropertyCard({ property, isSelected = false, isFeatured 
           </div>
         )}
 
-        {/* Badge operación + destacada */}
-        <div className="absolute top-3 left-3 flex items-center gap-1.5">
+        {/* Badge operación + destacada — columna vertical para no solapar botones */}
+        <div className="absolute top-2 left-2 flex flex-col items-start gap-1">
           {operationType && (
             <span className="bg-white/95 dark:bg-[#161b22]/95 backdrop-blur-sm text-gray-700 dark:text-gray-200 text-[11px] font-semibold px-2.5 py-1 rounded-full shadow-sm">
               {operationType}
