@@ -12,6 +12,7 @@ import { PropertyFilters, PROPERTY_TYPE_IDS, OPERATION_TYPE_IDS } from '@/lib/to
 interface SmartFilterProps {
   filters: PropertyFilters;
   onFilterChange: (filters: PropertyFilters) => void;
+  onClearSearch?: () => void;  // limpia searchText + bbox cuando se aplica un filtro
   resultCount: number;
 }
 
@@ -126,7 +127,7 @@ function getActiveLabel(filters: PropertyFilters): string {
 }
 
 // ── Componente principal ─────────────────────────────────────
-export default function SmartFilter({ filters, onFilterChange, resultCount }: SmartFilterProps) {
+export default function SmartFilter({ filters, onFilterChange, onClearSearch, resultCount }: SmartFilterProps) {
   const [isOpen,       setIsOpen]       = useState(false);
   const [operation,    setOperation]    = useState<OperationId | null>(null);
   const [selectedType, setSelectedType] = useState<string | null>(null);
@@ -163,6 +164,7 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
     setSelectedType(null);
     setSubFilterIdx(null);
     onFilterChange({ operation_types: _getOpFilter(op) });
+    onClearSearch?.();           // limpia buscador si había texto
     sfHistCount.current++;
     history.pushState({ type: 'sf' }, '');
   }
@@ -173,6 +175,7 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
     setSelectedType(typeId);
     setSubFilterIdx(null);
     onFilterChange(_buildFilters(operation, typeOpt));
+    onClearSearch?.();           // limpia buscador si había texto
     sfHistCount.current++;
     history.pushState({ type: 'sf' }, '');
   }
@@ -182,6 +185,7 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
     if (!typeOpt?.subFilters || !operation) return;
     setSubFilterIdx(idx);
     onFilterChange(_buildFilters(operation, typeOpt, typeOpt.subFilters[idx].filter));
+    onClearSearch?.();           // limpia buscador si había texto
     sfHistCount.current++;
     history.pushState({ type: 'sf' }, '');
   }
@@ -199,6 +203,7 @@ export default function SmartFilter({ filters, onFilterChange, resultCount }: Sm
   function clearAll() {
     setOperation(null); setSelectedType(null); setSubFilterIdx(null);
     onFilterChange({});
+    onClearSearch?.();           // también limpia el buscador de texto
     setIsOpen(false);
     // Limpiar todas nuestras entries del historial
     if (sfHistCount.current > 0) {
