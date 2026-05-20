@@ -72,8 +72,10 @@ export default function PropertyList({ properties, selectedId, loading = false, 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-gray-50 dark:bg-[#0d1117]">
 
-      {/* Grilla scrolleable — 2 columnas */}
-      <div className="flex-1 overflow-y-auto p-3">
+      {/* Grilla scrolleable — 2 columnas
+           pt-[120px] en mobile: compensa navbar fija (56px) + SmartFilter pill (~50px) + buffer
+           ya que el contenedor padre es absolute inset-0 (ignora el pt-14 del abuelo) */}
+      <div className="flex-1 overflow-y-auto px-3 pb-3 pt-[120px] md:pt-3">
         <div className="grid grid-cols-2 gap-3">
           {properties.map((property) => {
             const isSel = property.id === selectedId;
