@@ -192,6 +192,7 @@ export default function SmartFilter({ filters, onFilterChange, onClearSearch, re
 
   function openPanel() {
     setIsOpen(true);
+    onClearSearch?.();           // limpia buscador al abrir el filtro
     sfHistCount.current++;
     history.pushState({ type: 'sf' }, '');
   }
