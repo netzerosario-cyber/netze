@@ -17,6 +17,7 @@ interface SearchBarProps {
   onSearchText?: (text: string) => void;
   properties?: Property[];
   className?: string;
+  value?: string;  // valor controlado desde el padre — permite resetear el input externamente
 }
 
 interface Suggestion {
@@ -26,11 +27,20 @@ interface Suggestion {
   center?: [number, number];
 }
 
-export default function SearchBar({ onSelect, onSearchText, properties = [], className = '' }: SearchBarProps) {
-  const [query, setQuery] = useState('');
+export default function SearchBar({ onSelect, onSearchText, properties = [], className = '', value }: SearchBarProps) {
+  const [query, setQuery] = useState(value ?? '');
   const [isOpen, setIsOpen] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Sincronizar estado interno cuando el padre cambia value (ej: SmartFilter limpia el buscador)
+  useEffect(() => {
+    if (value !== undefined && value !== query) {
+      setQuery(value);
+      setIsOpen(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
 
   // ── Generar sugerencias únicas desde las propiedades cargadas ──
   const suggestions: Suggestion[] = useMemo(() => {
