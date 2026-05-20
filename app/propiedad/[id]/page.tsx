@@ -147,12 +147,27 @@ function PropertyInfo({ property: p }: { property: Property }) {
       )}
 
       {/* Descripción */}
-      {p.description && (
-        <div className="bg-gray-50 rounded-2xl p-5 border border-gray-100">
-          <h2 className="text-sm font-bold text-gray-800 uppercase tracking-wide mb-3">Descripción</h2>
-          <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">{p.description}</p>
-        </div>
-      )}
+      {(() => {
+        // Preferir rich_description (HTML formateado de Tokko)
+        // Filtrar HTML vacío (solo div/br/whitespace sin contenido real)
+        const richHtml = (p.rich_description ?? '').replace(/<[^>]+>/g, '').trim();
+        const hasRich  = richHtml.length > 10;
+        const hasPlain = (p.description ?? '').trim().length > 0;
+        if (!hasRich && !hasPlain) return null;
+        return (
+          <div className="bg-gray-50 rounded-2xl p-5 border border-gray-100">
+            <h2 className="text-sm font-bold text-gray-800 uppercase tracking-wide mb-3">Descripción</h2>
+            {hasRich ? (
+              <div
+                className="text-sm text-gray-600 leading-relaxed prose prose-sm max-w-none"
+                dangerouslySetInnerHTML={{ __html: p.rich_description! }}
+              />
+            ) : (
+              <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">{p.description}</p>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Información general */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -206,34 +221,85 @@ function PropertyInfo({ property: p }: { property: Property }) {
         </div>
       )}
 
-      {/* Videos */}
-      {videos.length > 0 && (
-        <div>
-          <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-3">Videos</h2>
-          <div className="flex flex-col gap-3">
-            {videos.map((v, i) => {
-              const isYoutube = v.url?.includes('youtube') || v.url?.includes('youtu.be');
-              const ytId = isYoutube ? v.url.split('v=')[1]?.split('&')[0] ?? v.url.split('/').pop() : null;
-              return (
-                <div key={i} className="rounded-xl overflow-hidden bg-black aspect-video">
-                  {ytId ? (
-                    <iframe
-                      src={`https://www.youtube.com/embed/${ytId}`}
-                      className="w-full h-full" allowFullScreen
-                      title={v.title ?? `Video ${i+1}`}
-                    />
-                  ) : (
-                    <a href={v.url} target="_blank" rel="noopener noreferrer"
-                       className="flex items-center justify-center w-full h-full text-white text-sm underline">
-                      {v.title ?? 'Ver video'}
-                    </a>
-                  )}
+      {/* Videos y Recorridos Virtuales */}
+      {videos.length > 0 && (() => {
+        // Separar tours virtuales de videos normales
+        const VIRTUAL_PROVIDERS = ['panoee', 'matterport', 'vpix', 'asteroom', 'istaging', '3dvista'];
+        const isTourVideo = (v: Record<string, string>) =>
+          VIRTUAL_PROVIDERS.includes((v.provider ?? '').toLowerCase()) ||
+          ['virtual', '360', 'recorrido', 'tour'].some(kw =>
+            (v.title ?? '').toLowerCase().includes(kw) ||
+            (v.url ?? '').toLowerCase().includes(kw)
+          );
+
+        const tours    = videos.filter(v => isTourVideo(v as unknown as Record<string, string>));
+        const normalVids = videos.filter(v => !isTourVideo(v as unknown as Record<string, string>));
+
+        return (
+          <>
+            {/* Recorridos virtuales 360° */}
+            {tours.map((v, i) => (
+              <div key={`tour-${i}`} className="rounded-2xl overflow-hidden border border-blue-100 shadow-sm">
+                <div className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 border-b border-blue-100">
+                  <span className="text-base">🔄</span>
+                  <span className="text-sm font-bold text-blue-800 uppercase tracking-wide">
+                    {v.title || 'Recorrido Virtual 360°'}
+                  </span>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+                <div className="aspect-video bg-black">
+                  <iframe
+                    src={(v as Record<string, string>).player_url || v.url}
+                    className="w-full h-full"
+                    allow="fullscreen; vr; xr"
+                    allowFullScreen
+                    title={v.title ?? `Tour virtual ${i + 1}`}
+                    loading="lazy"
+                  />
+                </div>
+              </div>
+            ))}
+
+            {/* Videos normales (YouTube, Vimeo, etc.) */}
+            {normalVids.length > 0 && (
+              <div>
+                <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-3">Videos</h2>
+                <div className="flex flex-col gap-3">
+                  {normalVids.map((v, i) => {
+                    const isYoutube = v.url?.includes('youtube') || v.url?.includes('youtu.be');
+                    const isVimeo   = v.url?.includes('vimeo');
+                    const ytId = isYoutube
+                      ? v.url.split('v=')[1]?.split('&')[0] ?? v.url.split('/').pop()
+                      : null;
+                    const vimeoId = isVimeo ? v.url.split('/').pop() : null;
+                    return (
+                      <div key={i} className="rounded-xl overflow-hidden bg-black aspect-video">
+                        {ytId ? (
+                          <iframe
+                            src={`https://www.youtube.com/embed/${ytId}`}
+                            className="w-full h-full" allowFullScreen
+                            title={v.title ?? `Video ${i + 1}`}
+                          />
+                        ) : vimeoId ? (
+                          <iframe
+                            src={`https://player.vimeo.com/video/${vimeoId}`}
+                            className="w-full h-full" allowFullScreen
+                            title={v.title ?? `Video ${i + 1}`}
+                          />
+                        ) : (
+                          <a href={v.url} target="_blank" rel="noopener noreferrer"
+                             className="flex items-center justify-center w-full h-full text-white text-sm underline">
+                            {v.title ?? 'Ver video'}
+                          </a>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </>
+        );
+      })()}
 
       {/* Banner CTA móvil */}
       <div className="md:hidden rounded-2xl overflow-hidden shadow-lg">
@@ -299,7 +365,7 @@ export default async function PropiedadPage({ params }: PageProps) {
   const mobileWaUrl = `https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '5493417538537'}?text=${encodeURIComponent(`Hola! Me interesa la propiedad en ${property.address} (${mobilePriceLabel}). ¿Pueden darme más información?`)}`;
 
   return (
-    <div className="min-h-dvh bg-gray-50">
+    <div className="flex-1 overflow-y-auto bg-gray-50">
       {/* Schema.org */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
