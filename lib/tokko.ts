@@ -515,7 +515,74 @@ export async function getProperty(id: string | number): Promise<Property> {
   const url = `${TOKKO_BASE_URL}/property/${id}/?key=${key}&format=json&lang=es_ar`;
   const res = await fetch(url, { next: { revalidate: 120 } });
   if (!res.ok) throw new Error(`Tokko API error fetching property ${id}: ${res.status} ${res.statusText}`);
-  return res.json() as Promise<Property>;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const p = await res.json() as any;
+
+  // Mapear los campos del API Tokko al tipo Property normalizado.
+  // IMPORTANTE: el endpoint /property/{id}/ devuelve nombres distintos a los de /property/ (lista):
+  //   total_surface  → surface_total
+  //   room_amount    → rooms
+  //   type           → property_type
+  //   operation_id   → operations[].id
+  return {
+    id:               p.id,
+    title:            p.publication_title ?? p.address ?? '',
+    address:          p.address ?? '',
+    real_address:     p.real_address ?? null,
+    fake_address:     p.fake_address ?? null,
+    publication_title: p.publication_title ?? null,
+    reference_code:   p.reference_code ?? null,
+    public_url:       p.public_url ?? null,
+    geo_lat:          p.geo_lat ?? null,
+    geo_long:         p.geo_long ?? null,
+    price:            p.operations?.[0]?.prices?.[0]?.price ?? null,
+    currency:         p.operations?.[0]?.prices?.[0]?.currency ?? 'USD',
+    rooms:            p.room_amount ?? p.rooms ?? null,
+    // Superficies: Tokko usa 'total_surface' en API, nosotros usamos 'surface_total'
+    surface_total:    p.total_surface  ? parseFloat(p.total_surface)  : (p.surface ? parseFloat(p.surface) : null),
+    surface_covered:  p.roofed_surface ? parseFloat(p.roofed_surface) : null,
+    roofed_surface:   p.roofed_surface ? parseFloat(p.roofed_surface) : null,
+    semiroofed_surface: p.semiroofed_surface ? parseFloat(p.semiroofed_surface) : null,
+    unroofed_surface: p.unroofed_surface ? parseFloat(p.unroofed_surface) : null,
+    front_measure:    p.front_measure ? parseFloat(p.front_measure) : null,
+    depth_measure:    p.depth_measure ? parseFloat(p.depth_measure) : null,
+    photos:           p.photos ?? [],
+    // Tokko puede usar 'type' o 'property_type' según el endpoint
+    property_type:    (p.type ?? p.property_type)
+                        ? { id: (p.type ?? p.property_type).id, name: (p.type ?? p.property_type).name ?? '' }
+                        : null,
+    operations: (p.operations ?? []).map((op: { operation_id?: number; id?: number; operation_type?: string; name?: string; prices?: unknown[] }) => ({
+      id:     op.operation_id ?? op.id ?? 0,
+      name:   op.operation_type ?? op.name ?? '',
+      prices: op.prices ?? [],
+    })),
+    status:              p.status ?? 2,
+    development_status:  p.development_status ?? null,
+    description:         p.description ?? null,
+    rich_description:    p.rich_description ?? null,
+    suite_amount:        p.suite_amount ?? null,
+    bathroom_amount:     p.bathroom_amount ?? null,
+    toilet_amount:       p.toilet_amount ?? null,
+    parking_lot_amount:  p.parking_lot_amount ?? null,
+    covered_parking_lot: p.covered_parking_lot ?? null,
+    uncovered_parking_lot: p.uncovered_parking_lot ?? null,
+    floors:              p.floors_amount ?? null,
+    floors_amount:       p.floors_amount ?? null,
+    age:                 p.age ?? null,
+    orientation:         p.orientation ?? null,
+    property_condition:  p.property_condition ?? null,
+    situation:           p.situation ?? null,
+    disposition:         p.disposition ?? null,
+    credit_eligible:     p.credit_eligible ?? null,
+    expenses:            p.expenses ?? null,
+    location:            p.location ?? null,
+    branch:              p.branch ?? null,
+    producer:            p.producer ?? null,
+    tags:                p.tags ?? [],
+    extra_attributes:    p.extra_attributes ?? [],
+    videos:              p.videos ?? [],
+  };
 }
 
 // ------------------------------------------------------------
