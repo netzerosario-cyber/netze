@@ -31,8 +31,8 @@ export default function Footer() {
           <span className="w-px h-4 bg-gray-200 dark:bg-gray-700 shrink-0" />
           <div className="flex flex-col leading-tight">
             <p className="text-xs text-gray-400">Administración Netze · Rosario, Santa Fe</p>
-            <a href="tel:+5493417538537" className="text-xs text-gray-400 hover:text-[#0041CE] transition">
-              +54 9 341 753-8537
+            <a href="tel:+5493415937173" className="text-xs text-gray-400 hover:text-[#0041CE] transition">
+              +54 9 341 593-7173
             </a>
           </div>
         </div>
