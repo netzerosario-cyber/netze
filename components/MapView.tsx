@@ -121,7 +121,7 @@ function BottomCard({ prop, onClose }: { prop: Property; onClose: () => void }) 
   const pl = formatPriceLabel(price, currency);
   const photo = getFrontPhoto(prop);
   const op = prop.operations?.[0]?.name ?? '';
-  const wa = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '5493417538537';
+  const wa = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '5493415937173';
   const wt = encodeURIComponent(`Hola! Me interesa la propiedad en ${prop.address} (${pl}). ¿Pueden darme más información?`);
 
   return (
