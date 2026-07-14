@@ -285,7 +285,7 @@ export default async function PropiedadPage({ params }: PageProps) {
 
   const { price: mobilePrice, currency: mobileCurrency } = getPriceInfo(property);
   const mobilePriceLabel = formatPriceLabel(mobilePrice, mobileCurrency);
-  const mobileWaUrl = `https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '5493417538537'}?text=${encodeURIComponent(`Hola! Me interesa la propiedad en ${property.address} (${mobilePriceLabel}). ¿Pueden darme más información?`)}`;
+  const mobileWaUrl = `https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '5493415937173'}?text=${encodeURIComponent(`Hola! Me interesa la propiedad en ${property.address} (${mobilePriceLabel}). ¿Pueden darme más información?`)}`;
 
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50">
