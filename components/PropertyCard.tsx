@@ -9,7 +9,7 @@ import { useComparador } from '@/lib/comparador';
 import { shareProperty, buildSharePayload } from '@/lib/share';
 
 function buildWhatsAppUrl(property: Property, price: string): string {
-  const number = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '5493417538537';
+  const number = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '5493415937173';
   const text = encodeURIComponent(
     `Hola! Me interesa la propiedad en ${property.address} (${price}). ¿Pueden darme más información?`
   );
