@@ -4,7 +4,7 @@
 // ============================================================
 import { useState } from 'react';
 
-const WA_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '5493417538537';
+const WA_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '5493415937173';
 
 export default function WhatsAppButton() {
   const [hovered, setHovered] = useState(false);
