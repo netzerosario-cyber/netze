@@ -40,7 +40,7 @@ export default function Comparador() {
 
   if (seleccionadas.length < 2 && !modalOpen) return null;
 
-  const waNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '5493417538537';
+  const waNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? '5493415937173';
 
   return (
     <>
